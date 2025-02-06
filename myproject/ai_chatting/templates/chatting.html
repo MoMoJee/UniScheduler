@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat Room</title>
+    <style>
+        /* 基础样式 */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            margin-top: 20px;
+        }
+        #chat-box {
+            width: 100%;
+            max-width: 600px;
+            height: 60vh;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 10px;
+            overflow-y: scroll;
+            background-color: #fff;
+        }
+        #message-input {
+            width: 100%;
+            max-width: 600px;
+            height: 50px;
+            padding: 5px;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+        #send-button {
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+<h1>Chat Room</h1>
+<div id="chat-box">
+    <!-- 显示聊天记录 -->
+    {% for message in chat_history %}
+    <p><strong>{{ message.role }}:</strong> {{ message.content }}</p>
+    {% endfor %}
+</div>
+<textarea id="message-input" placeholder="Type a message..."></textarea>
+<button id="send-button">Send</button>
+<button id="clear-button">Clear</button>
+
+<script>
+    // 获取 DOM 元素
+    const messageInput = document.getElementById('message-input');
+    const sendButton = document.getElementById('send-button');
+    const chatBox = document.getElementById('chat-box');
+    const clearbutton = document.getElementById('clear-button');
+    // 发送消息的函数
+    function sendMessage() {
+        const message = messageInput.value.trim();
+        if (message) {
+            fetch('', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ message: message })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    chatBox.innerHTML += `<p><strong>You:</strong> ${message}</p>`;
+                    chatBox.innerHTML += `<p><strong>Server:</strong> ${data.message}</p>`;
+                    messageInput.value = '';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+    }
+
+    function Clear_History(){
+        const message = '#cc初始化';
+        if (message) {
+            fetch('', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ message: message })
+            })
+
+                .then(response => response.json())
+                .then(data => {
+                    chatBox.innerHTML += `<p><strong>You:</strong> ${message}</p>`;
+                    chatBox.innerHTML += `<p><strong>Server:</strong> ${data.message}</p>`;
+                    messageInput.value = '';
+                })
+
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+
+        }
+    }
+
+
+
+
+    // 监听发送按钮的点击事件
+    sendButton.addEventListener('click', sendMessage);
+
+    // 监听输入框的按键事件
+    messageInput.addEventListener('keydown', function(event) {
+        if (event.key === 'Enter') {
+            if (event.shiftKey) {
+                // 如果按下 Shift + Enter，不做任何操作，让浏览器执行默认的换行操作
+                // return;
+            } else {
+                // 如果只按下 Enter，阻止默认行为并发送消息
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+    });
+    clearbutton.addEventListener('click', Clear_History)
+</script>
+</body>
+</html>

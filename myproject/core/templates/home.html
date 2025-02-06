@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Time Management</title>
+</head>
+<body>
+<h1>Welcome, {{ request.user.username }}!</h1>
+<a href="/user_logout">退出登录</a>
+<br/>
+<a href="/ai_chatting">AI聊天</a>
+<br/>
+<a href="/about">关于我们</a>
+<br/>
+<a href="/user_data">我的</a>
+<br/>
+<div id="calendar"></div>
+
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar/index.global.min.js'></script>
+<!--<script>-->
+
+<!--    document.addEventListener('DOMContentLoaded', function() {-->
+<!--        const calendarEl = document.getElementById('calendar')-->
+<!--        const calendar = new FullCalendar.Calendar(calendarEl, {-->
+<!--            initialView: 'dayGridMonth'-->
+<!--        })-->
+<!--        calendar.render()-->
+<!--    })-->
+
+<!--</script>-->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var calendarEl = document.getElementById('calendar');
+
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            locale: 'zh-cn', // 指定中文简体
+            allDayText: '全天', // 更改all-day 显示文本
+            initialView: 'dayGridMonth', // 初始视图
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            },
+            buttonText: {
+                today: '今天',
+                month: '月',
+                week: '周',
+                day: '日',
+                list: '日程',
+            },
+            events: function(info, successCallback, failureCallback) {
+                fetch('/events/')
+                    .then(response => response.json())
+                    .then(data => {
+                        successCallback(data);
+                    })
+                    .catch(error => {
+                        failureCallback(error);
+                    });
+            }
+        });
+
+
+
+        calendar.render();
+    });
+</script>
+</body>
+</html>

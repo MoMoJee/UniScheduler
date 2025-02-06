@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>User Data</title>
+</head>
+<body>
+<h1>Your Data</h1>
+<ul>
+  {% for data in user_data %}
+  <li>{{ data.key }}: {{ data.value }}</li>
+  {% endfor %}
+</ul>
+</body>
+</html>
