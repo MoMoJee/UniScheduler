@@ -17,7 +17,8 @@
 <br/>
 <div id="calendar"></div>
 
-<script src='https://cdn.jsdelivr.net/npm/fullcalendar/index.global.min.js'></script>
+<!--<script src='https://cdn.jsdelivr.net/npm/fullcalendar/index.global.min.js'></script>-->
+<script src='../static/fullcalendar_index.global.js'></script>
 <!--<script>-->
 
 <!--    document.addEventListener('DOMContentLoaded', function() {-->
@@ -48,6 +49,7 @@
                 week: '周',
                 day: '日',
                 list: '日程',
+
             },
             events: function(info, successCallback, failureCallback) {
                 fetch('/events/')

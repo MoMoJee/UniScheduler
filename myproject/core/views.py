@@ -59,10 +59,7 @@ def user_login(request):
         form = AuthenticationForm()
     return render(request, 'user_login.html', {'form': form})
 
-# 登陆后的主页
-@login_required
-def home(request):
-    return render(request, 'home.html')
+
 
 # 测试
 @login_required
