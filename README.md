@@ -131,3 +131,50 @@ def about(request):
 5. 1. about函数中可以写对于用户数据的操作
    
    2. 可以写一些数据发送给about.html，比如用户名（从(request参数获取），这样打开about.html后就是有一些动态的内容
+
+
+
+##### 1.1.5.5 forms.py
+
+浏览器向服务器发送数据时，是以表单形式发送的，forms里面就定义了表单格式
+
+
+
+##### 1.1.5.6 models.py
+
+这里定义“模型”，没搞懂是啥，但是我定义了用户数据模型（有俩），分别用来存储用户静态、动态数据（具体看我代码里打的注释）
+
+
+
+##### 1.1.5.7 admin.py
+
+定义管理员能对这个core app做的事情，这里我写了一个查看用户数据之类的，只是初步了解
+
+
+
+#### 1.1.6 ai_chatting文件夹
+
+这个纯属我自己瞎玩儿的app，目的是测试ai和前端的交互接口、前后端交互，后期就改成之前说的，智能规划器
+
+这个里面的东西功能和core完全相同，不赘述了
+
+
+
+#### 1.1.7 logs文件夹
+
+显然这是日志
+
+日志器我已经做好了，你只需要在你想要产生日志的py文件里写：
+
+```python
+import logging
+logger = logging.getLogger("logger")
+# 这是引入日志器
+
+
+logger.info("This is an info message")
+logger.warning("This is a warning message")
+logger.error("This is an error message")
+logger.critical("This is a critical message")
+# 这是调用日志器
+```

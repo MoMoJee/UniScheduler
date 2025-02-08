@@ -16,6 +16,10 @@ from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 import json
+
+import logging
+logger = logging.getLogger("logger")
+
 # 索引页
 def index(request):
     return render(request, 'index.html')
