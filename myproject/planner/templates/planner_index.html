@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>计划师</title>
+    <style>
+        /* 对话框样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: #fff;
+            margin: 15% auto;
+            padding: 20px;
+            width: 30%;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        /*重要紧急维度选择 样式*/
+        .importance-urgency-matrix {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .matrix-button {
+            padding: 10px;
+            background-color: white;
+            border: 1px solid #ccc;
+            cursor: pointer;
+        }
+
+        .matrix-button.selected {
+            background-color: #ccc; /* 灰色背景表示选中 */
+        }
+
+        /*!* 深色主题的自定义样式 *!*/
+        /*.fc {*/
+        /*    background-color: #333; !* 设置日历背景为深灰色 *!*/
+        /*    color: #fff; !* 设置文本颜色为白色 *!*/
+        /*}*/
+
+        /*.fc-day {*/
+        /*    background-color: #444; !* 设置日期单元格背景 *!*/
+        /*}*/
+
+        /*.fc-event {*/
+        /*    background-color: #555; !* 设置事件背景 *!*/
+        /*    border-color: #666; !* 设置事件边框颜色 *!*/
+        /*    color: #fff; !* 设置事件文本颜色 *!*/
+        /*}*/
+
+    </style>
+
+</head>
+<body>
+<button id="updateEventsButton">AI规划</button>
+<a href="/home">主页</a>
+<br/>
+<h1>计划师</h1>
+<div id="calendar"></div>
+<div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; text-align: center; padding-top: 50%;">
+    <h1>Loading...</h1>
+</div>
+<!-- 点击后弹出的对话框 -->
+<div id="myModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <p><input type="text" id="eventTitle"></p>
+        <p><strong>从：</strong> <input type="datetime-local" id="eventStart"></p>
+        <p><strong>到：</strong> <input type="datetime-local" id="eventEnd"></p>
+        <p><textarea id="eventDescription"></textarea></p>
+        <div class="importance-urgency-matrix">
+            <button type="button" onclick="setImportanceUrgency('important', 'urgent', this)" class="matrix-button">重要且紧急</button>
+            <button type="button" onclick="setImportanceUrgency('important', 'not-urgent', this)" class="matrix-button">重要但不紧急</button>
+            <button type="button" onclick="setImportanceUrgency('not-important', 'urgent', this)" class="matrix-button">不重要但紧急</button>
+            <button type="button" onclick="setImportanceUrgency('not-important', 'not-urgent', this)" class="matrix-button">不重要且不紧急</button>
+        </div>
+        <input type="hidden" id="eventId"> <!-- 隐藏的输入框用于存储事件 ID -->
+        <input type="hidden" id="eventImportance">
+        <input type="hidden" id="eventUrgency">
+        <button onclick="updateEventFromModal()">确定</button>
+        <button onclick="deleteEvent()">删除日程</button>
+    </div>
+</div>
+
+
+<!-- 创建日程的对话框 -->
+<div id="createEventModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeCreateEventModal()">&times;</span>
+        <h2>新建日程</h2>
+        <form id="createEventForm">
+            <p><strong>日程名称：</strong> <input type="text" id="newEventTitle" required></p>
+            <p><strong>日程详情：</strong> <textarea id="newEventDescription"></textarea></p>
+            <p><strong>从</strong> <input type="datetime-local" id="newEventStart" required></p>
+            <p><strong>到</strong> <input type="datetime-local" id="newEventEnd" required></p>
+            <div class="importance-urgency-matrix">
+                <button type="button" onclick="setImportanceUrgency('important', 'urgent', this)" class="matrix-button">重要且紧急</button>
+                <button type="button" onclick="setImportanceUrgency('important', 'not-urgent', this)" class="matrix-button">重要但不紧急</button>
+                <button type="button" onclick="setImportanceUrgency('not-important', 'urgent', this)" class="matrix-button">不重要但紧急</button>
+                <button type="button" onclick="setImportanceUrgency('not-important', 'not-urgent', this)" class="matrix-button">不重要且不紧急</button>
+            </div>
+            <input type="hidden" id="newEventImportance">
+            <input type="hidden" id="newEventUrgency">
+            <button type="submit">创建</button>
+        </form>
+    </div>
+</div>
+
+<!--<script src='https://cdn.jsdelivr.net/npm/fullcalendar/index.global.min.js'></script>-->
+<!--上面是让浏览器自行下载fullcalendar的意思-->
+<script src='../static/fullcalendar_index.global.js'></script>
+
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var calendarEl = document.getElementById('calendar');
+
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            height: 'auto',
+            locale: 'zh-cn', // 指定中文简体
+            allDayText: '全天', // 更改all-day 显示文本
+            initialView: 'timeGridWeek', // 初始视图
+            editable: true, // enable draggable events
+
+            eventDrop: function (info) {
+                updateEvent(info.event.id, info.event.start.toISOString(), info.event.end.toISOString(), info.event.title, info.event.extendedProps.description, info.event.extendedProps.importance, info.event.extendedProps.urgency);
+            },
+            eventResize: function (info) {
+                updateEvent(info.event.id, info.event.start.toISOString(), info.event.end.toISOString(), info.event.title, info.event.extendedProps.description, info.event.extendedProps.importance, info.event.extendedProps.urgency);
+            },
+
+            // 自定义展示
+            //     eventContent: function(arg) {
+            //         const importance = arg.event.extendedProps.importance;
+            //         const urgency = arg.event.extendedProps.urgency;
+            //         const importanceText = importance === 'important' ? 'Important' : 'Not Important';
+            //         const urgencyText = urgency === 'urgent' ? 'Urgent' : 'Not Urgent';
+            //
+            //         return {
+            //             html: `
+            //     <div>
+            //         <strong>${arg.event.title}</strong>
+            //         <p>${arg.event.extendedProps.description}</p>
+            //         <p><strong>Importance:</strong> ${importanceText}</p>
+            //         <p><strong>Urgency:</strong> ${urgencyText}</p>
+            //     </div>
+            // `
+            //         };
+            //     },
+
+
+            eventClick: function (info) {
+                var modal = document.getElementById('myModal');
+                var closeBtn = document.getElementsByClassName('close')[0];
+
+                // 获取事件的开始时间和结束时间，并减去8小时
+                var eventStart = new Date(info.event.start);
+                eventStart.setHours(eventStart.getHours() + 8); // 减去8小时时差
+                var eventEnd = new Date(info.event.end);
+                eventEnd.setHours(eventEnd.getHours() + 8); // 减去8小时时差
+
+                // 转换为 YYYY-MM-DDTHH:MM 格式
+                var formattedStart = eventStart.toISOString().substring(0, 16);
+                var formattedEnd = eventEnd.toISOString().substring(0, 16);
+
+                // 设置事件信息到对话框
+                document.getElementById('eventTitle').value = info.event.title;
+                document.getElementById('eventStart').value = formattedStart;
+                document.getElementById('eventEnd').value = formattedEnd;
+                document.getElementById('eventDescription').value = info.event.extendedProps.description;
+
+                // 获取重要性和紧急性属性
+                const importance = info.event.extendedProps.importance || '';
+                const urgency = info.event.extendedProps.urgency || '';
+
+                // 设置重要性和紧急性按钮的选中状态
+                const buttons = document.querySelectorAll('.matrix-button');
+                buttons.forEach(btn => btn.classList.remove('selected'));
+
+                // 如果重要性和紧急性字段不为空，则选中对应的按钮
+                if (importance && urgency) {
+                    document.querySelector(`[onclick="setImportanceUrgency('${importance}', '${urgency}', this)"]`).classList.add('selected');
+                }
+
+                // 保存当前事件的 ID 和属性
+                document.getElementById('eventId').value = info.event.id;
+                document.getElementById('eventImportance').value = importance;
+                document.getElementById('eventUrgency').value = urgency;
+
+                modal.style.display = 'block';
+
+                closeBtn.onclick = function () {
+                    modal.style.display = 'none';
+                };
+
+                window.onclick = function (event) {
+                    if (event.target == modal) {
+                        modal.style.display = 'none';
+                    }
+                };
+            },
+
+            selectable: true,
+            select: function (info) {
+                openCreateEventModal(info.startStr, info.endStr);
+            },
+            // select: function(info) {
+            //     // 弹出对话框，让用户输入事件详情
+            //     var title = prompt('日程名称：');
+            //     var description = prompt('日程详情：');
+            //     if (title) {
+            //         calendar.addEvent({
+            //             title: title,
+            //             start: info.startStr,
+            //             end: info.endStr,
+            //             allDay: info.allDay,
+            //             description: description
+            //         });
+            //         createEvent(title, info.startStr, info.endStr, description)
+            //     }
+            //
+            //     calendar.unselect(); // 取消选择状态
+            // },
+            aspectRatio: 1.8,
+            headerToolbar: {
+                left: 'today prev, next, createEventButton',
+                center: 'title',
+                right: 'timeGridDay,dayGridMonth,timeGridWeek,listWeek'
+            },
+
+            buttonText: {
+                today: '今天',
+                month: '月',
+                week: '周',
+                day: '日',
+                list: '列表视图',
+
+            },
+            customButtons: {
+                createEventButton: {
+                    text: '新建日程',
+                    click: function () {
+                        openCreateEventModal(0,0);
+                    }
+                }
+            },
+
+            events: function (info, successCallback, failureCallback) {
+                fetch('/get_calendar/events/')
+                    .then(response => response.json())
+                    .then(data => {
+                        successCallback(data);
+                    })
+                    .catch(error => {
+                        failureCallback(error);
+                    });
+            },
+
+            resources: function (info, successCallback, failureCallback) {
+                fetch('/get_calendar/resources/')
+                    .then(response => response.json())
+                    .then(data => {
+                        successCallback(data);
+                    })
+                    .catch(error => {
+                        failureCallback(error);
+                    });
+            }
+
+        });
+
+
+        calendar.render();
+        document.getElementById('createEventForm').addEventListener('submit', function (event) {
+            event.preventDefault();
+            createEvent();
+        });
+
+        // 添加按钮点击事件监听器
+        document.getElementById('updateEventsButton').addEventListener('click', function() {
+            // 显示加载动画
+            document.getElementById('loadingOverlay').style.display = 'block';
+
+            // 禁用所有用户交互
+            calendar.setOption('editable', false);
+            calendar.setOption('selectable', false);
+
+            // 启动随机移动日程的定时器
+            let randomMoveInterval = setInterval(() => {
+                const events = calendar.getEvents();
+                events.forEach(event => {
+                    if (Math.random() > 0.5) { // 50% 的概率随机移动日程
+                        const randomStart = new Date(event.start.getTime() + (Math.random() - 0.5) * 7200000); // 随机移动 ±2 小时
+                        const randomEnd = new Date(event.end.getTime() + (Math.random() - 0.5) * 7200000); // 随机移动 ±2 小时
+
+                        if (randomStart < randomEnd) {
+                            moveEventWithAnimation(event, randomStart.toISOString(), randomEnd.toISOString());
+                        }
+                    }
+                });
+            }, 5000); // 每秒随机移动一次
+            fetch('ai_suggestions/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.events) {
+                        data.events.forEach(eventChange => {
+                            const event = calendar.getEventById(eventChange.eventId);
+                            if (event) {
+                                moveEventWithAnimation(event, eventChange.newStart, eventChange.newEnd);
+                                // 隐藏加载动画
+                                document.getElementById('loadingOverlay').style.display = 'none';
+
+                                // 恢复用户交互
+                                calendar.setOption('editable', true);
+                                calendar.setOption('selectable', true);
+                            }
+                        });
+                    }
+                })
+                .catch(error => console.error('Error fetching event changes:', error))
+                .finally(() => {
+
+
+                    // 停止随机移动日程
+                    clearInterval(randomMoveInterval);
+                });
+        });
+
+    });
+
+
+        function updateEvent(eventId, newStart, newEnd, title, description, importance, urgency) {
+            fetch('/get_calendar/update_events/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({eventId, newStart, newEnd, title, description, importance, urgency})
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Event updated successfully');
+                    // 刷新日历事件
+
+                })
+                .catch(error => console.error('Error updating event:', error));
+        }
+
+        function updateEventFromModal() {
+            var eventId = document.getElementById('eventId').value; // 获取事件 ID
+            var title = document.getElementById('eventTitle').value; // 获取日程名称
+            var newStart = document.getElementById('eventStart').value; // 获取用户输入的新开始时间
+            var newEnd = document.getElementById('eventEnd').value; // 获取用户输入的新结束时间
+            var description = document.getElementById('eventDescription').value; // 获取日程详情
+            var importance = document.getElementById('eventImportance').value; // 获取重要性
+            var urgency = document.getElementById('eventUrgency').value; // 获取紧急性
+
+            // 将本地时间转换为 UTC 时间
+            function toUTC(time) {
+                const date = new Date(time);
+                return date.toISOString();
+            }
+
+            // 调用 updateEvent 函数
+            updateEvent(eventId, toUTC(newStart), toUTC(newEnd), title, description, importance, urgency);
+            location.reload()
+
+            // 关闭对话框
+            document.getElementById('myModal').style.display = 'none';
+        }
+
+
+        function deleteEvent() {
+            // 从隐藏的输入框中获取 eventId
+            var eventId = document.getElementById('eventId').value;
+
+            fetch('/get_calendar/delete_event/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({eventId}) // 确保传递正确的 eventId
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Event deleted successfully');
+                    location.reload(); // 刷新页面
+                    document.getElementById('myModal').style.display = 'none';
+
+                    // 从日历中移除该事件
+                    if (window.currentEvent) {
+                        window.currentEvent.remove(); // 删除事件
+
+                    }
+                })
+                .catch(error => console.error('Error deleting event:', error));
+        }
+
+        // 打开创建栏
+        function openCreateEventModal(start, end) {
+            // 将 ISO 格式的时间字符串转换为本地时间格式，并加上8小时
+            function toLocalTime(time) {
+                const date = new Date(time);
+                date.setHours(date.getHours() + 8); // 加上8小时
+                return date.toISOString().substring(0, 16); // 格式化为 YYYY-MM-DDTHH:MM
+            }
+
+            // 设置输入框的值
+            document.getElementById('newEventStart').value = toLocalTime(start);
+            document.getElementById('newEventEnd').value = toLocalTime(end);
+
+            // 清除重要性和紧急性按钮的选中状态
+            const buttons = document.querySelectorAll('.matrix-button');
+            buttons.forEach(btn => btn.classList.remove('selected'));
+
+            // 清空隐藏输入框的值
+            document.getElementById('newEventImportance').value = '';
+            document.getElementById('newEventUrgency').value = '';
+
+            // 显示创建日程的对话框
+            document.getElementById('createEventModal').style.display = 'block';
+        }
+
+        // 关闭
+        function closeCreateEventModal() {
+            document.getElementById('createEventModal').style.display = 'none';
+        }
+
+        // 重要性-紧急性维度视图
+        function setImportanceUrgency(importance, urgency, button) {
+            // 获取当前按钮的状态
+            const isAlreadySelected = button.classList.contains('selected');
+
+            // 如果按钮已经被选中，再次点击则取消选中
+            if (isAlreadySelected) {
+                document.getElementById('eventImportance').value = '';
+                document.getElementById('eventUrgency').value = '';
+                button.classList.remove('selected');
+            } else {
+                // 如果按钮未被选中，设置为选中状态
+                document.getElementById('eventImportance').value = importance;
+                document.getElementById('eventUrgency').value = urgency;
+
+                // 清除所有按钮的选中状态
+                const buttons = document.querySelectorAll('.matrix-button');
+                buttons.forEach(btn => btn.classList.remove('selected'));
+
+                // 设置当前按钮为选中状态
+                button.classList.add('selected');
+            }
+        }
+
+        // 发送新建的日程
+        function createEvent() {
+            var title = document.getElementById('newEventTitle').value;
+            var start = document.getElementById('newEventStart').value;
+            var end = document.getElementById('newEventEnd').value;
+            var description = document.getElementById('newEventDescription').value;
+            var importance = document.getElementById('eventImportance').value;
+            var urgency = document.getElementById('eventUrgency').value;
+
+            fetch('/get_calendar/create_event/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({title, start, end, description, importance, urgency})
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        closeCreateEventModal();
+                        location.reload(); // 刷新页面以显示新事件
+                    }
+                })
+                .catch(error => console.error('Error creating event:', error));
+        }
+
+
+    function moveEventWithAnimation(event, newStart, newEnd) {
+        if (event) {
+            const duration = 5000; // 动画持续时间（毫秒）
+            const originalStart = new Date(event.start); // 直接使用 JavaScript 的 Date 对象
+            const originalEnd = new Date(event.end);
+
+            const startTime = new Date();
+            const animate = () => {
+                const now = new Date();
+                const progress = Math.min((now - startTime) / duration, 1);
+
+                if (progress < 1) {
+                    const currentStart = new Date(originalStart.getTime() + (new Date(newStart) - originalStart) * progress);
+                    const currentEnd = new Date(originalEnd.getTime() + (new Date(newEnd) - originalEnd) * progress);
+
+                    event.setStart(currentStart);
+                    event.setEnd(currentEnd);
+
+                    requestAnimationFrame(animate);
+                } else {
+                    event.setStart(newStart);
+                    event.setEnd(newEnd);
+                }
+            };
+
+            requestAnimationFrame(animate);
+        }
+    }
+
+</script>
+</body>
+</html>

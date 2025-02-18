@@ -3,9 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>关于我们</title>
+  <title>README</title>
+  <link rel="stylesheet" href="../static/github-markdown.css">
+<!-- 一个用于实现网页美化的库 -->
+  <style>
+    .markdown-body {
+      box-sizing: border-box;
+      min-width: 200px;
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 45px;
+    }
+  </style>
 </head>
 <body>
-啥也没写
+<article class="markdown-body">
+  {{ readme_content|safe }}
+</article>
 </body>
 </html>

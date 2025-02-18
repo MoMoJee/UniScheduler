@@ -1,0 +1,1 @@
+2025-02-17 21:32:16,476-DEBUG-【views-update_events: line 180】日程更新，详情：{'id': 'cb3f3d28-cd9e-49cd-97d7-f08f3c74f905', 'title': '数学作业', 'start': '2025-02-18T05:30:00.000Z', 'end': '2025-02-18T07:30:00.000Z', 'description': '有点难，但是后天交', 'importance': 'important', 'urgency': 'urgent'}

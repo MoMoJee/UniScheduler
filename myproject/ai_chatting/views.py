@@ -51,7 +51,7 @@ def chatting(request):
         user_data, created = UserData.objects.get_or_create(
             user=request.user,
             key='ai_chatting',
-            defaults={"value": json.dumps({"token_balance": 1000000, "nickname": "jojo"})}  # 如果不存在，则创建并设置默认值。别动这个value！
+            defaults={"value": json.dumps({"token_balance": 1000000, "nickname": f'小{request.user.username}'})}  # 如果不存在，则创建并设置默认值。别动这个value！
         )
         # UserData.objects.filter() 返回的是一个查询集，不能直接通过键名访问或修改。如果需要操作单个对象，可以使用 get_or_create 或 get 方法。
         # 这里就获取到了该用户UserData模型中ai_chatting键的值（按照设置，这应当是一个用Text存储的字典（即JSON格式，但需要手动解析）），赋值给user_data

@@ -1,0 +1,13 @@
+2025-02-17 21:27:43,396-DEBUG-【views-update_events: line 180】日程更新，详情：{'id': '1', 'title': '语文课', 'start': '2025-02-17T23:30:00.000Z', 'end': '2025-02-18T01:30:00.000Z', 'description': '边上课边操逼', 'importance': 'important', 'urgency': 'urgent'}
+2025-02-17 21:27:48,247-DEBUG-【views-delete_event: line 243】指定了要删除的日程代码：4
+2025-02-17 21:27:49,438-DEBUG-【views-delete_event: line 243】指定了要删除的日程代码：5
+2025-02-17 21:27:50,639-DEBUG-【views-delete_event: line 243】指定了要删除的日程代码：3
+2025-02-17 21:27:52,319-DEBUG-【views-delete_event: line 243】指定了要删除的日程代码：1
+2025-02-17 21:27:53,359-DEBUG-【views-delete_event: line 243】指定了要删除的日程代码：2
+2025-02-17 21:28:10,201-DEBUG-【views-create_event: line 225】用户创建了新日程，详情 {'id': '91cb2402-41a1-4c26-8d38-ca5a903571a1', 'title': '语文课', 'start': '2025-02-18T08:00', 'end': '2025-02-18T10:00', 'description': '302教室', 'importance': 'important', 'urgency': 'urgent'}
+2025-02-17 21:28:41,283-DEBUG-【views-create_event: line 225】用户创建了新日程，详情 {'id': '3dc13cac-a8b0-4a41-a21a-91e037922a51', 'title': '数学课', 'start': '2025-02-18T10:00', 'end': '2025-02-18T12:00', 'description': '303教室', 'importance': 'important', 'urgency': 'urgent'}
+2025-02-17 21:28:42,647-DEBUG-【views-update_events: line 180】日程更新，详情：{'id': '3dc13cac-a8b0-4a41-a21a-91e037922a51', 'title': '数学课', 'start': '2025-02-18T02:30:00.000Z', 'end': '2025-02-18T04:30:00.000Z', 'description': '303教室', 'importance': 'important', 'urgency': 'urgent'}
+2025-02-17 21:29:03,632-DEBUG-【views-create_event: line 225】用户创建了新日程，详情 {'id': '190326e4-7621-4774-80bd-69767678b9a9', 'title': '打游戏', 'start': '2025-02-18T13:00', 'end': '2025-02-18T16:00', 'description': '打王者', 'importance': 'not-important', 'urgency': 'not-urgent'}
+2025-02-17 21:29:06,711-DEBUG-【views-update_events: line 180】日程更新，详情：{'id': '190326e4-7621-4774-80bd-69767678b9a9', 'title': '打游戏', 'start': '2025-02-18T12:00:00.000Z', 'end': '2025-02-18T15:00:00.000Z', 'description': '打王者', 'importance': 'not-important', 'urgency': 'not-urgent'}
+2025-02-17 21:29:50,429-DEBUG-【views-create_event: line 225】用户创建了新日程，详情 {'id': 'cb3f3d28-cd9e-49cd-97d7-f08f3c74f905', 'title': '数学作业', 'start': '2025-02-18T13:30', 'end': '2025-02-18T15:30', 'description': '有点难，但是后天交', 'importance': 'important', 'urgency': 'urgent'}
+2025-02-17 21:29:56,145-DEBUG-【views-update_events: line 180】日程更新，详情：{'id': 'cb3f3d28-cd9e-49cd-97d7-f08f3c74f905', 'title': '数学作业', 'start': '2025-02-18T06:00:00.000Z', 'end': '2025-02-18T08:00:00.000Z', 'description': '有点难，但是后天交', 'importance': 'important', 'urgency': 'urgent'}

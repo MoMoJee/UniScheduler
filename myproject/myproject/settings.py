@@ -36,6 +36,7 @@ CORS_ORIGIN_ALLOW_ALL = True
 INSTALLED_APPS = [
     'core',
     'ai_chatting',
+    'planner',
     'corsheaders',
     'django.contrib.admin',
     'django.contrib.auth',
