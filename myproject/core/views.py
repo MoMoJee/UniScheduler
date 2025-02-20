@@ -28,10 +28,15 @@ def index(request):
 
 # 关于我们
 def about(request):
+
     # 获取 README.md 文件的路径
     # base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     # readme_path = os.path.join(base_dir, '/core/static/about.md')
     readme_path = 'D:\\PROJECTS\\UniScheduler\\myproject\\core\\static\\about.md'
+
+
+
+
 
     # 读取 README.md 文件内容
     with open(readme_path, 'r', encoding='utf-8') as file:

@@ -132,33 +132,23 @@ def about(request):
    
    2. 可以写一些数据发送给about.html，比如用户名（从(request参数获取），这样打开about.html后就是有一些动态的内容
 
-
-
 ##### 1.1.5.5 forms.py
 
 浏览器向服务器发送数据时，是以表单形式发送的，forms里面就定义了表单格式
-
-
 
 ##### 1.1.5.6 models.py
 
 这里定义“模型”，没搞懂是啥，但是我定义了用户数据模型（有俩），分别用来存储用户静态、动态数据（具体看我代码里打的注释）
 
-
-
 ##### 1.1.5.7 admin.py
 
 定义管理员能对这个core app做的事情，这里我写了一个查看用户数据之类的，只是初步了解
-
-
 
 #### 1.1.6 ai_chatting文件夹
 
 这个纯属我自己瞎玩儿的app，目的是测试ai和前端的交互接口、前后端交互，后期就改成之前说的，智能规划器
 
 这个里面的东西功能和core完全相同，不赘述了
-
-
 
 #### 1.1.7 logs文件夹
 
@@ -178,3 +168,208 @@ logger.error("This is an error message")
 logger.critical("This is a critical message")
 # 这是调用日志器
 ```
+
+
+
+
+
+## 2. 快速部署
+
+### 2.1 项目依赖与版本
+
+项目指定解释器版本为<mark>python3.12</mark>
+
+
+
+运行时可以尝试激活虚拟环境：
+
+
+
+```bash
+cd 你的路径/UniScheduler
+.venv\Scripts\activate
+```
+
+然后之后用位于项目的.venv/Scripts下的python.exe运行项目
+
+
+
+或者给自己的Python312安装依赖，运行：
+
+```bash
+pip install -r requirements.txt
+```
+
+
+
+注意安装完、运行2.2的命令后，有时候还会报错：
+
+```bash
+OSError: [WinError 126] 找不到指定的模块。 Error loading "D:\PYTHONS\Python312\Lib\site-packages\torch\lib\c10.dll" or one of its dependencies.
+```
+
+这大概是提示你未安装Microsoft Visual C++ Redistributable，这可能导致某些依赖的DLL文件加载失败。这是一个常见的问题，尤其是在运行需要C++运行时库的Python包（如`torch`）时。
+
+ 解决方法：
+
+你需要下载并安装Microsoft Visual C++ Redistributable。根据错误信息，推荐的下载链接是： https://aka.ms/vs/16/release/vc_redist.x64.exe
+
+
+
+### 2.2 项目运行
+
+在项目的<mark>myproject</mark>文件夹下运行：
+
+```bash
+python manage.py runserver x.x.x.x:xxxx
+```
+
+这里如果直接打python，显然用的是你系统默认的python版本。
+
+如果你安装的不是python312，那你可能需要下载并安装，不一定要重设为系统默认版本，你也可以（比如）：
+
+```bash
+D:\python_learn\python.exe manage.py runserver x.x.x.x:xxxx
+```
+
+
+
+关于x.x.x.x:xxxx，这就是你网站运行的地址，比如127.0.0.1:8000，就运行在本地；0.0.0.0:8000，就运行在局域网，这可以随意指定。如果你有公网IP或者内外穿透等映射，也可改成你电脑上所要映射的端口号
+
+
+
+### 2.3 网站管理
+
+在开始运行2.2的代码之前，可以创建管理员账户，具体来说：
+
+
+---
+
+在 Django 中创建管理员账户是一个简单的过程。以下是详细步骤：
+
+#### **1. 确保已迁移数据库**
+
+在创建管理员账户之前，需要确保数据库已正确迁移。运行以下命令：
+
+bash复制
+
+```bash
+python manage.py migrate
+```
+
+这会创建必要的数据库表，包括用于存储用户信息的表。
+
+#### **2. 创建管理员账户**
+
+使用以下命令创建管理员账户：
+
+bash复制
+
+```bash
+python manage.py createsuperuser
+```
+
+运行该命令后，Django 会提示你输入以下信息：
+
+1. **用户名**：输入管理员的用户名。
+
+2. **邮箱地址**（可选）：输入管理员的邮箱地址（如果需要）。
+
+3. **密码**：输入管理员的密码，并再次输入以确认。
+
+例如：
+
+复制
+
+```
+$ python manage.py createsuperuser
+Username: admin
+Email address: admin@example.com
+Password: 
+Password (again): 
+Superuser created successfully.
+```
+
+#### **3. 验证管理员账户**
+
+启动 Django 开发服务器，验证管理员账户是否创建成功：
+
+bash复制
+
+```bash
+python manage.py runserver
+```
+
+打开浏览器，访问 `http://127.0.0.1:8000/admin`。使用刚才创建的管理员用户名和密码登录。如果登录成功，你将看到 Django 管理后台界面。
+
+---
+
+#### **4. 其他注意事项**
+
+#### **a. 如果忘记管理员密码**
+
+如果忘记了管理员密码，可以通过以下步骤重置：
+
+1. 运行以下命令：
+   
+   bash复制
+   
+   ```bash
+   python manage.py createsuperuser
+   ```
+   
+   这会创建一个新的管理员账户，覆盖旧的管理员信息。
+
+#### **b. 在生产环境中创建管理员账户**
+
+在生产环境中，建议使用更安全的方式创建管理员账户，例如通过 Django shell：
+
+bash复制
+
+```bash
+python manage.py shell
+```
+
+然后在 shell 中运行以下代码：
+
+Python复制
+
+```python
+from django.contrib.auth.models import User
+
+# 创建管理员账户
+User.objects.create_superuser('admin', 'admin@example.com', 'your_password')
+```
+
+#### **c. 使用自定义用户模型**
+
+如果你使用了自定义用户模型（例如继承了 `AbstractBaseUser` 或 `CustomUser`），可能需要调整创建管理员的代码。例如：
+
+Python复制
+
+```python
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+User.objects.create_superuser('admin', 'admin@example.com', 'your_password')
+```
+
+---
+
+#### **总结**
+
+在 Django 中创建管理员账户的步骤如下：
+
+1. 运行 `python manage.py migrate` 确保数据库已迁移。
+
+2. 使用 `python manage.py createsuperuser` 创建管理员账户。
+
+3. 输入用户名、邮箱和密码。
+
+4. 启动开发服务器并访问 `/admin` 验证管理员账户。
+
+如果需要重置密码或在生产环境中创建管理员账户，可以使用 Django shell 或其他安全方式。
+
+
+
+---

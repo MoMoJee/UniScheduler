@@ -1,10 +1,12 @@
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
-import os
-from core.models import UserData
 import json
-from django.http import FileResponse, JsonResponse
+
+from core.models import UserData
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
+
+
 # Create your views here.
 
 def planner_index(request):

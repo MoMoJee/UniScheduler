@@ -56,6 +56,10 @@
             background-color: #ccc; /* 灰色背景表示选中 */
         }
 
+
+
+
+
         /*!* 深色主题的自定义样式 *!*/
         /*.fc {*/
         /*    background-color: #333; !* 设置日历背景为深灰色 *!*/
@@ -155,6 +159,9 @@
             eventResize: function(info) {
                 updateEvent(info.event.id, info.event.start.toISOString(), info.event.end.toISOString(), info.event.title, info.event.extendedProps.description, info.event.extendedProps.importance, info.event.extendedProps.urgency);
             },
+
+
+
 
             // 自定义展示
         //     eventContent: function(arg) {
@@ -343,6 +350,8 @@
         // 关闭对话框
         document.getElementById('myModal').style.display = 'none';
     }
+
+
 
 
 
