@@ -56,6 +56,37 @@
             background-color: #ccc; /* 灰色背景表示选中 */
         }
 
+        /*ai返回的建议文本弹出框*/
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: #fff;
+            margin: 15% auto;
+            padding: 20px;
+            width: 80%;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover {
+            color: black;
+            cursor: pointer;
+        }
+
         /*!* 深色主题的自定义样式 *!*/
         /*.fc {*/
         /*    background-color: #333; !* 设置日历背景为深灰色 *!*/
@@ -88,16 +119,22 @@
 <div id="myModal" class="modal">
     <div class="modal-content">
         <span class="close">&times;</span>
-        <p><input type="text" id="eventTitle"></p>
+        <p><strong>日程名称：</strong> <input type="text" id="eventTitle"></p>
         <p><strong>从：</strong> <input type="datetime-local" id="eventStart"></p>
         <p><strong>到：</strong> <input type="datetime-local" id="eventEnd"></p>
-        <p><textarea id="eventDescription"></textarea></p>
+        <p><strong>日程详情：</strong> <textarea id="eventDescription"></textarea></p>
         <div class="importance-urgency-matrix">
             <button type="button" onclick="setImportanceUrgency('important', 'urgent', this)" class="matrix-button">重要且紧急</button>
             <button type="button" onclick="setImportanceUrgency('important', 'not-urgent', this)" class="matrix-button">重要但不紧急</button>
             <button type="button" onclick="setImportanceUrgency('not-important', 'urgent', this)" class="matrix-button">不重要但紧急</button>
             <button type="button" onclick="setImportanceUrgency('not-important', 'not-urgent', this)" class="matrix-button">不重要且不紧急</button>
         </div>
+        <p><strong>日程组：</strong>
+            <select id="eventGroupId">
+                <option value="">无</option>
+                <!-- 动态生成日程组选项 -->
+            </select>
+        </p>
         <input type="hidden" id="eventId"> <!-- 隐藏的输入框用于存储事件 ID -->
         <input type="hidden" id="eventImportance">
         <input type="hidden" id="eventUrgency">
@@ -123,8 +160,28 @@
                 <button type="button" onclick="setImportanceUrgency('not-important', 'urgent', this)" class="matrix-button">不重要但紧急</button>
                 <button type="button" onclick="setImportanceUrgency('not-important', 'not-urgent', this)" class="matrix-button">不重要且不紧急</button>
             </div>
+            <p><strong>置入日程组：</strong>
+                <select id="newEventGroupId">
+                    <option value="">无</option>
+                    <!-- 选项将通过 JavaScript 动态生成 -->
+                </select>
+            </p>
             <input type="hidden" id="newEventImportance">
             <input type="hidden" id="newEventUrgency">
+            <button type="submit">创建</button>
+        </form>
+    </div>
+</div>
+
+<!-- 创建日程组的对话框 -->
+<div id="createEventGroupModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeCreateEventGroupModal()">&times;</span>
+        <h2>创建日程组</h2>
+        <form id="createEventGroupForm">
+            <p><strong>日程组名称：</strong> <input type="text" id="newGroupName" required></p>
+            <p><strong>日程组描述：</strong> <textarea id="newGroupDescription"></textarea></p>
+            <p><strong>日程组颜色：</strong> <input type="color" id="newGroupColor" required></p>
             <button type="submit">创建</button>
         </form>
     </div>
@@ -153,24 +210,6 @@
                 updateEvent(info.event.id, info.event.start.toISOString(), info.event.end.toISOString(), info.event.title, info.event.extendedProps.description, info.event.extendedProps.importance, info.event.extendedProps.urgency);
             },
 
-            // 自定义展示
-            //     eventContent: function(arg) {
-            //         const importance = arg.event.extendedProps.importance;
-            //         const urgency = arg.event.extendedProps.urgency;
-            //         const importanceText = importance === 'important' ? 'Important' : 'Not Important';
-            //         const urgencyText = urgency === 'urgent' ? 'Urgent' : 'Not Urgent';
-            //
-            //         return {
-            //             html: `
-            //     <div>
-            //         <strong>${arg.event.title}</strong>
-            //         <p>${arg.event.extendedProps.description}</p>
-            //         <p><strong>Importance:</strong> ${importanceText}</p>
-            //         <p><strong>Urgency:</strong> ${urgencyText}</p>
-            //     </div>
-            // `
-            //         };
-            //     },
 
 
             eventClick: function (info) {
@@ -200,11 +239,24 @@
                 // 设置重要性和紧急性按钮的选中状态
                 const buttons = document.querySelectorAll('.matrix-button');
                 buttons.forEach(btn => btn.classList.remove('selected'));
-
-                // 如果重要性和紧急性字段不为空，则选中对应的按钮
                 if (importance && urgency) {
                     document.querySelector(`[onclick="setImportanceUrgency('${importance}', '${urgency}', this)"]`).classList.add('selected');
                 }
+
+                // 动态生成日程组的下拉菜单选项
+                const eventGroupIdSelect = document.getElementById('eventGroupId');
+                eventGroupIdSelect.innerHTML = '<option value="">无</option>'; // 默认选项
+                window.events_groups.forEach(group => {
+                    const option = document.createElement('option');
+                    option.value = group.id;
+                    option.text = group.name;
+                    eventGroupIdSelect.appendChild(option);
+                });
+
+                // 设置日程组选择框的默认值
+                const eventGroupId = info.event.extendedProps.groupID || '';
+                document.getElementById('eventGroupId').value = eventGroupId;
+
 
                 // 保存当前事件的 ID 和属性
                 document.getElementById('eventId').value = info.event.id;
@@ -228,23 +280,7 @@
             select: function (info) {
                 openCreateEventModal(info.startStr, info.endStr);
             },
-            // select: function(info) {
-            //     // 弹出对话框，让用户输入事件详情
-            //     var title = prompt('日程名称：');
-            //     var description = prompt('日程详情：');
-            //     if (title) {
-            //         calendar.addEvent({
-            //             title: title,
-            //             start: info.startStr,
-            //             end: info.endStr,
-            //             allDay: info.allDay,
-            //             description: description
-            //         });
-            //         createEvent(title, info.startStr, info.endStr, description)
-            //     }
-            //
-            //     calendar.unselect(); // 取消选择状态
-            // },
+
             aspectRatio: 1.8,
             headerToolbar: {
                 left: 'today prev, next, createEventButton',
@@ -273,7 +309,34 @@
                 fetch('/get_calendar/events/')
                     .then(response => response.json())
                     .then(data => {
-                        successCallback(data);
+                        if (data && data.events && data.events_groups) {
+                            // 将日程组数据存储到全局变量中
+                            window.events_groups = data.events_groups;
+
+                            // 为每个事件添加颜色信息
+                            const eventsWithColor = data.events.map(event => {
+                                const groupID = String(event.groupID); // 确保 groupID 是字符串
+                                const group = window.events_groups.find(group => String(group.id) === groupID); // 确保 group.id 也是字符串
+
+                                if (group) {
+                                    console.log("WIN");
+                                } else {
+                                    console.log("LOSE");
+                                    console.log(data.events, window.events_groups);
+                                }
+
+                                const groupColor = group ? group.color : '#999'; // 默认颜色
+                                return {
+                                    ...event,
+                                    backgroundColor: groupColor,
+                                    borderColor: groupColor
+                                };
+                            });
+
+                            successCallback(eventsWithColor);
+                        } else {
+                            failureCallback(new Error('Invalid data format'));
+                        }
                     })
                     .catch(error => {
                         failureCallback(error);
@@ -295,12 +358,35 @@
 
 
         calendar.render();
+
+
         document.getElementById('createEventForm').addEventListener('submit', function (event) {
             event.preventDefault();
             createEvent();
         });
 
-        // 添加按钮点击事件监听器
+
+
+
+
+        function showSuggestions(suggestions) {
+            // 创建一个弹出窗口来显示建议
+            const modal = document.createElement('div');
+            modal.id = 'suggestionsModal';
+            modal.className = 'modal';
+            modal.style.display = 'block';
+            modal.innerHTML = `
+        <div class="modal-content">
+            <span class="close" onclick="closeSuggestionsModal()">&times;</span>
+            <h2>AI Suggestions</h2>
+            <p>${suggestions}</p>
+        </div>
+    `;
+
+            document.body.appendChild(modal);
+        }
+
+
         document.getElementById('updateEventsButton').addEventListener('click', function() {
             // 显示加载动画
             document.getElementById('loadingOverlay').style.display = 'block';
@@ -323,6 +409,7 @@
                     }
                 });
             }, 5000); // 每秒随机移动一次
+
             fetch('ai_suggestions/')
                 .then(response => response.json())
                 .then(data => {
@@ -331,26 +418,41 @@
                             const event = calendar.getEventById(eventChange.eventId);
                             if (event) {
                                 moveEventWithAnimation(event, eventChange.newStart, eventChange.newEnd);
-                                // 隐藏加载动画
-                                document.getElementById('loadingOverlay').style.display = 'none';
-
-                                // 恢复用户交互
-                                calendar.setOption('editable', true);
-                                calendar.setOption('selectable', true);
                             }
                         });
+                    }
+
+                    // 显示后端返回的 suggestions
+                    if (data && data.suggestions) {
+                        showSuggestions(data.suggestions);
                     }
                 })
                 .catch(error => console.error('Error fetching event changes:', error))
                 .finally(() => {
+                    // 隐藏加载动画
+                    document.getElementById('loadingOverlay').style.display = 'none';
 
+                    // 恢复用户交互
+                    calendar.setOption('editable', true);
+                    calendar.setOption('selectable', true);
 
                     // 停止随机移动日程
                     clearInterval(randomMoveInterval);
                 });
         });
 
+
+
+
+
     });
+    // 定义关闭弹出窗口的函数
+    function closeSuggestionsModal() {
+        const modal = document.getElementById('suggestionsModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
 
 
         function updateEvent(eventId, newStart, newEnd, title, description, importance, urgency) {
