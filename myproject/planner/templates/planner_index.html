@@ -110,6 +110,8 @@
 <button id="updateEventsButton">AI规划</button>
 <a href="/home">主页</a>
 <br/>
+<button id="createEventGroupButton">创建日程组</button>
+<br/>
 <h1>计划师</h1>
 <div id="calendar"></div>
 <div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; text-align: center; padding-top: 50%;">
@@ -204,10 +206,10 @@
             editable: true, // enable draggable events
 
             eventDrop: function (info) {
-                updateEvent(info.event.id, info.event.start.toISOString(), info.event.end.toISOString(), info.event.title, info.event.extendedProps.description, info.event.extendedProps.importance, info.event.extendedProps.urgency);
+                updateEvent(info.event.id, info.event.start.toISOString(), info.event.end.toISOString(), info.event.title, info.event.extendedProps.description, info.event.extendedProps.importance, info.event.extendedProps.urgency, info.event.extendedProps.groupID);
             },
             eventResize: function (info) {
-                updateEvent(info.event.id, info.event.start.toISOString(), info.event.end.toISOString(), info.event.title, info.event.extendedProps.description, info.event.extendedProps.importance, info.event.extendedProps.urgency);
+                updateEvent(info.event.id, info.event.start.toISOString(), info.event.end.toISOString(), info.event.title, info.event.extendedProps.description, info.event.extendedProps.importance, info.event.extendedProps.urgency, info.event.extendedProps.groupID);
             },
 
 
@@ -360,33 +362,6 @@
         calendar.render();
 
 
-        document.getElementById('createEventForm').addEventListener('submit', function (event) {
-            event.preventDefault();
-            createEvent();
-        });
-
-
-
-
-
-        function showSuggestions(suggestions) {
-            // 创建一个弹出窗口来显示建议
-            const modal = document.createElement('div');
-            modal.id = 'suggestionsModal';
-            modal.className = 'modal';
-            modal.style.display = 'block';
-            modal.innerHTML = `
-        <div class="modal-content">
-            <span class="close" onclick="closeSuggestionsModal()">&times;</span>
-            <h2>AI Suggestions</h2>
-            <p>${suggestions}</p>
-        </div>
-    `;
-
-            document.body.appendChild(modal);
-        }
-
-
         document.getElementById('updateEventsButton').addEventListener('click', function() {
             // 显示加载动画
             document.getElementById('loadingOverlay').style.display = 'block';
@@ -440,12 +415,45 @@
                     clearInterval(randomMoveInterval);
                 });
         });
-
-
-
-
-
     });
+
+
+
+
+    document.getElementById('createEventForm').addEventListener('submit', function (event) {
+        event.preventDefault();
+        createEvent();
+    });
+
+    // 添加按钮点击事件监听器
+    document.getElementById('createEventGroupButton').addEventListener('click', function() {
+        openCreateEventGroupModal();
+    });
+
+    // 处理创建日程组的表单提交
+    document.getElementById('createEventGroupForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+        createEventGroup();
+    });
+
+    function showSuggestions(suggestions) {
+        // 创建一个弹出窗口来显示建议
+        const modal = document.createElement('div');
+        modal.id = 'suggestionsModal';
+        modal.className = 'modal';
+        modal.style.display = 'block';
+        modal.innerHTML = `
+        <div class="modal-content">
+            <span class="close" onclick="closeSuggestionsModal()">&times;</span>
+            <h2>AI Suggestions</h2>
+            <p>${suggestions}</p>
+        </div>
+    `;
+
+        document.body.appendChild(modal);
+    }
+
+
     // 定义关闭弹出窗口的函数
     function closeSuggestionsModal() {
         const modal = document.getElementById('suggestionsModal');
@@ -455,152 +463,197 @@
     }
 
 
-        function updateEvent(eventId, newStart, newEnd, title, description, importance, urgency) {
-            fetch('/get_calendar/update_events/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({eventId, newStart, newEnd, title, description, importance, urgency})
+    function updateEvent(eventId, newStart, newEnd, title, description, importance, urgency, groupID) {
+        fetch('/get_calendar/update_events/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({eventId, newStart, newEnd, title, description, importance, urgency, groupID})
+        })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Event updated successfully');
             })
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Event updated successfully');
-                    // 刷新日历事件
+            .catch(error => console.error('Error updating event:', error));
+    }
 
-                })
-                .catch(error => console.error('Error updating event:', error));
+    function updateEventFromModal() {
+        var eventId = document.getElementById('eventId').value; // 获取事件 ID
+        var title = document.getElementById('eventTitle').value; // 获取日程名称
+        var newStart = document.getElementById('eventStart').value; // 获取用户输入的新开始时间
+        var newEnd = document.getElementById('eventEnd').value; // 获取用户输入的新结束时间
+        var description = document.getElementById('eventDescription').value; // 获取日程详情
+        var importance = document.getElementById('eventImportance').value; // 获取重要性
+        var urgency = document.getElementById('eventUrgency').value; // 获取紧急性
+        var groupID = document.getElementById('eventGroupId').value; // 获取日程组 ID
+
+        // 将本地时间转换为 UTC 时间
+        function toUTC(time) {
+            const date = new Date(time);
+            return date.toISOString();
         }
 
-        function updateEventFromModal() {
-            var eventId = document.getElementById('eventId').value; // 获取事件 ID
-            var title = document.getElementById('eventTitle').value; // 获取日程名称
-            var newStart = document.getElementById('eventStart').value; // 获取用户输入的新开始时间
-            var newEnd = document.getElementById('eventEnd').value; // 获取用户输入的新结束时间
-            var description = document.getElementById('eventDescription').value; // 获取日程详情
-            var importance = document.getElementById('eventImportance').value; // 获取重要性
-            var urgency = document.getElementById('eventUrgency').value; // 获取紧急性
+        // 调用 updateEvent 函数
+        updateEvent(eventId, toUTC(newStart), toUTC(newEnd), title, description, importance, urgency, groupID);
+        location.reload()
 
-            // 将本地时间转换为 UTC 时间
-            function toUTC(time) {
-                const date = new Date(time);
-                return date.toISOString();
-            }
-
-            // 调用 updateEvent 函数
-            updateEvent(eventId, toUTC(newStart), toUTC(newEnd), title, description, importance, urgency);
-            location.reload()
-
-            // 关闭对话框
-            document.getElementById('myModal').style.display = 'none';
-        }
+        // 关闭对话框
+        document.getElementById('myModal').style.display = 'none';
+    }
 
 
-        function deleteEvent() {
-            // 从隐藏的输入框中获取 eventId
-            var eventId = document.getElementById('eventId').value;
+    function deleteEvent() {
+        // 从隐藏的输入框中获取 eventId
+        var eventId = document.getElementById('eventId').value;
 
-            fetch('/get_calendar/delete_event/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({eventId}) // 确保传递正确的 eventId
+        fetch('/get_calendar/delete_event/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({eventId}) // 确保传递正确的 eventId
+        })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Event deleted successfully');
+                location.reload(); // 刷新页面
+                document.getElementById('myModal').style.display = 'none';
+
+                // 从日历中移除该事件
+                if (window.currentEvent) {
+                    window.currentEvent.remove(); // 删除事件
+
+                }
             })
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Event deleted successfully');
-                    location.reload(); // 刷新页面
-                    document.getElementById('myModal').style.display = 'none';
+            .catch(error => console.error('Error deleting event:', error));
+    }
 
-                    // 从日历中移除该事件
-                    if (window.currentEvent) {
-                        window.currentEvent.remove(); // 删除事件
-
-                    }
-                })
-                .catch(error => console.error('Error deleting event:', error));
+    // 打开创建栏
+    function openCreateEventModal(start, end) {
+        // 将 ISO 格式的时间字符串转换为本地时间格式，并加上8小时
+        function toLocalTime(time) {
+            const date = new Date(time);
+            date.setHours(date.getHours() + 8); // 加上8小时
+            return date.toISOString().substring(0, 16); // 格式化为 YYYY-MM-DDTHH:MM
         }
 
-        // 打开创建栏
-        function openCreateEventModal(start, end) {
-            // 将 ISO 格式的时间字符串转换为本地时间格式，并加上8小时
-            function toLocalTime(time) {
-                const date = new Date(time);
-                date.setHours(date.getHours() + 8); // 加上8小时
-                return date.toISOString().substring(0, 16); // 格式化为 YYYY-MM-DDTHH:MM
-            }
+        // 设置输入框的值
+        document.getElementById('newEventStart').value = toLocalTime(start);
+        document.getElementById('newEventEnd').value = toLocalTime(end);
 
-            // 设置输入框的值
-            document.getElementById('newEventStart').value = toLocalTime(start);
-            document.getElementById('newEventEnd').value = toLocalTime(end);
+        // 清除重要性和紧急性按钮的选中状态
+        const buttons = document.querySelectorAll('.matrix-button');
+        buttons.forEach(btn => btn.classList.remove('selected'));
 
-            // 清除重要性和紧急性按钮的选中状态
+        // 清空隐藏输入框的值
+        document.getElementById('newEventImportance').value = '';
+        document.getElementById('newEventUrgency').value = '';
+
+        // 动态生成日程组的下拉菜单选项
+        const eventGroupIdSelect = document.getElementById('newEventGroupId');
+        eventGroupIdSelect.innerHTML = '<option value="">无</option>'; // 默认选项
+        window.events_groups.forEach(group => {
+            const option = document.createElement('option');
+            option.value = group.id;
+            option.text = group.name;
+            eventGroupIdSelect.appendChild(option);
+        });
+
+        // 显示创建日程的对话框
+        document.getElementById('createEventModal').style.display = 'block';
+    }
+
+    // 关闭
+    function closeCreateEventModal() {
+        document.getElementById('createEventModal').style.display = 'none';
+    }
+
+    // 重要性-紧急性维度视图
+    function setImportanceUrgency(importance, urgency, button) {
+        // 获取当前按钮的状态
+        const isAlreadySelected = button.classList.contains('selected');
+
+        // 如果按钮已经被选中，再次点击则取消选中
+        if (isAlreadySelected) {
+            document.getElementById('eventImportance').value = '';
+            document.getElementById('eventUrgency').value = '';
+            button.classList.remove('selected');
+        } else {
+            // 如果按钮未被选中，设置为选中状态
+            document.getElementById('eventImportance').value = importance;
+            document.getElementById('eventUrgency').value = urgency;
+
+            // 清除所有按钮的选中状态
             const buttons = document.querySelectorAll('.matrix-button');
             buttons.forEach(btn => btn.classList.remove('selected'));
 
-            // 清空隐藏输入框的值
-            document.getElementById('newEventImportance').value = '';
-            document.getElementById('newEventUrgency').value = '';
-
-            // 显示创建日程的对话框
-            document.getElementById('createEventModal').style.display = 'block';
+            // 设置当前按钮为选中状态
+            button.classList.add('selected');
         }
+    }
 
-        // 关闭
-        function closeCreateEventModal() {
-            document.getElementById('createEventModal').style.display = 'none';
-        }
+    // 发送新建的日程
+    function createEvent() {
+        var title = document.getElementById('newEventTitle').value;
+        var start = document.getElementById('newEventStart').value;
+        var end = document.getElementById('newEventEnd').value;
+        var description = document.getElementById('newEventDescription').value;
+        var importance = document.getElementById('newEventImportance').value;
+        var urgency = document.getElementById('newEventUrgency').value;
+        var groupId = document.getElementById('newEventGroupId').value; // 获取选中的日程组 ID
 
-        // 重要性-紧急性维度视图
-        function setImportanceUrgency(importance, urgency, button) {
-            // 获取当前按钮的状态
-            const isAlreadySelected = button.classList.contains('selected');
-
-            // 如果按钮已经被选中，再次点击则取消选中
-            if (isAlreadySelected) {
-                document.getElementById('eventImportance').value = '';
-                document.getElementById('eventUrgency').value = '';
-                button.classList.remove('selected');
-            } else {
-                // 如果按钮未被选中，设置为选中状态
-                document.getElementById('eventImportance').value = importance;
-                document.getElementById('eventUrgency').value = urgency;
-
-                // 清除所有按钮的选中状态
-                const buttons = document.querySelectorAll('.matrix-button');
-                buttons.forEach(btn => btn.classList.remove('selected'));
-
-                // 设置当前按钮为选中状态
-                button.classList.add('selected');
-            }
-        }
-
-        // 发送新建的日程
-        function createEvent() {
-            var title = document.getElementById('newEventTitle').value;
-            var start = document.getElementById('newEventStart').value;
-            var end = document.getElementById('newEventEnd').value;
-            var description = document.getElementById('newEventDescription').value;
-            var importance = document.getElementById('eventImportance').value;
-            var urgency = document.getElementById('eventUrgency').value;
-
-            fetch('/get_calendar/create_event/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({title, start, end, description, importance, urgency})
+        fetch('/get_calendar/create_event/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ title, start, end, description, importance, urgency, groupId })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    closeCreateEventModal();
+                    location.reload(); // 刷新页面以显示新事件
+                }
             })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        closeCreateEventModal();
-                        location.reload(); // 刷新页面以显示新事件
-                    }
-                })
-                .catch(error => console.error('Error creating event:', error));
-        }
+            .catch(error => console.error('Error creating event:', error));
+    }
+
+    function openCreateEventGroupModal() {
+        document.getElementById('createEventGroupModal').style.display = 'block';
+    }
+
+    function closeCreateEventGroupModal() {
+        document.getElementById('createEventGroupModal').style.display = 'none';
+    }
+
+    function createEventGroup() {
+        const groupName = document.getElementById('newGroupName').value;
+        const groupDescription = document.getElementById('newGroupDescription').value;
+        const groupColor = document.getElementById('newGroupColor').value;
+
+        fetch('/get_calendar/create_events_group/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: groupName,
+                description: groupDescription,
+                color: groupColor
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('日程组创建成功');
+                    closeCreateEventGroupModal();
+                    location.reload(); // 刷新页面以获取最新的日程组数据
+                }
+            })
+            .catch(error => console.error('创建日程组失败:', error));
+    }
 
 
     function moveEventWithAnimation(event, newStart, newEnd) {

@@ -4,6 +4,8 @@ import datetime
 import pytz
 from accelerate.commands.config.update import description
 from django.views.decorators.csrf import csrf_exempt
+from pydantic import UUID1
+
 from .forms import RegisterForm
 from django.contrib.auth import login, authenticate
 from django.contrib.auth.forms import AuthenticationForm
@@ -112,39 +114,56 @@ def home(request):
 
 
 @login_required
-def get_events(request):\
+def get_events(request):
+    if request.method == 'GET':
+        # 自动新建一个日程
 
-    # 自动新建一个日程
+        # 获取当前时间
+        now = datetime.datetime.now()
+        # 找到最近的整点
+        next_hour = now.replace(minute=0, second=0, microsecond=0) + datetime.timedelta(hours=1)
+        # 计算一天之后的时间
+        one_day_later = next_hour + datetime.timedelta(hours=1)
+        # 格式化为指定的格式
+        next_hour_formatted = next_hour.strftime("%Y-%m-%dT%H:%M:%S")
+        one_day_later_formatted = one_day_later.strftime("%Y-%m-%dT%H:%M:%S")
 
-    # 获取当前时间
-    now = datetime.datetime.now()
-    # 找到最近的整点
-    next_hour = now.replace(minute=0, second=0, microsecond=0) + datetime.timedelta(hours=1)
-    # 计算一天之后的时间
-    one_day_later = next_hour + datetime.timedelta(hours=1)
-    # 格式化为指定的格式
-    next_hour_formatted = next_hour.strftime("%Y-%m-%dT%H:%M:%S")
-    one_day_later_formatted = one_day_later.strftime("%Y-%m-%dT%H:%M:%S")
+        # 当没有读取到events的值（即新用户）的时候，自动新建一个任务
+        user_data, created = UserData.objects.get_or_create(user=request.user, key="events", defaults={"value": json.dumps([
+            {
+                "id": '1',
+                "title": "让我们开始吧！",
+                "start": next_hour_formatted,
+                "end": one_day_later_formatted,
+                "backgroundColor": "red",
+                "description": "花一小时时间，学习如何使用我们的计划工具！",
+                "importance": "important",
+                "urgency": "urgent",
+            }
+        ])})
 
-    # 当没有读取到events的值（即新用户）的时候，自动新建一个任务
-    user_data, created = UserData.objects.get_or_create(user=request.user, key="events", defaults={"value": json.dumps([
-        {
-            "id": '1',
-            "title": "让我们开始吧！",
-            "start": next_hour_formatted,
-            "end": one_day_later_formatted,
-            "backgroundColor": "red",
-            "description": "花一小时时间，学习如何使用我们的计划工具！",
-            "importance": "important",
-            "urgency": "urgent",
-        }
-    ])})
+        # 获取用户的所有日程组
+        user_data_groups, created = UserData.objects.get_or_create(user=request.user, key="events_groups", defaults={"value": json.dumps([
+            {
+                "id": '1',
+                "name": "学习如何使用日程组！",
+                "description": "进阶工具：日程组，继续学习如何使用我们的计划工具！",
+                "color": "red"
+            }
+        ])})
+        events_groups = json.loads(user_data_groups.value)
 
 
-    events = user_data.get_value()
-    if not events:
-        events = []
-    return JsonResponse(events, safe=False)
+        events = user_data.get_value()
+        if not events:
+            events = []
+        # 返回事件和日程组数据
+        if not events_groups:
+            events_groups = []
+
+            # 返回事件和日程组数据
+        return JsonResponse({"events": events, "events_groups": events_groups})
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
 
 
 
@@ -161,6 +180,7 @@ def update_events(request):
         description = data.get('description')
         importance = data.get('importance')
         urgency = data.get('urgency')
+        group_id = data.get('groupID', '')  # 默认为空字符串
 
 
         # 获取当前用户的 UserData 对象
@@ -184,6 +204,7 @@ def update_events(request):
                 event['description'] = description
                 event['importance'] = importance
                 event['urgency'] = urgency
+                event['groupID'] = group_id
                 logger.debug(f'日程更新，详情：{event}')
                 break
 
@@ -227,28 +248,24 @@ def create_event(request):
         description = data.get('description')
         importance = data.get('importance')
         urgency = data.get('urgency')
+        group_id = data.get('groupId')  # 接收 groupId 字段
 
-
-        user_data, created = UserData.objects.get_or_create(
-            user=request.user,
-            key="events",
-            defaults={"value": json.dumps([])}
-        )
+        user_data, created = UserData.objects.get_or_create(user=request.user, key="events", defaults={"value": json.dumps([])})
         events = json.loads(user_data.value)
-        # 生成唯一的事件ID
-        event_id = str(uuid.uuid4())
+
         new_event = {
-            "id": event_id,
+            "id": str(uuid.uuid4()),
             "title": title,
             "start": start,
             "end": end,
             "description": description,
             "importance": importance,
-            "urgency": urgency
+            "urgency": urgency,
+            "groupID": group_id  # 存储 groupId
         }
+
         events.append(new_event)
         user_data.value = json.dumps(events)
-        logger.debug(f'用户创建了新日程，详情 {str(new_event)}')
         user_data.save()
 
         return JsonResponse({'status': 'success'})
@@ -288,6 +305,30 @@ def delete_event(request):
     else:
         return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
 
+@login_required
+@csrf_exempt
+def create_events_group(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        group_name = data.get('name')
+        group_description = data.get('description')
+        group_color = data.get('color')
+
+        user_data_groups, created = UserData.objects.get_or_create(user=request.user, key="events_groups", defaults={"value": json.dumps([])})
+        events_groups = json.loads(user_data_groups.value)
+
+        new_group = {
+            "id": str(uuid.uuid4()),
+            "name": group_name,
+            "description": group_description,
+            "color": group_color
+        }
+        events_groups.append(new_group)
+        user_data_groups.value = json.dumps(events_groups)
+        user_data_groups.save()
+
+        return JsonResponse({'status': 'success'})
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
 
 
 def get_resources(request):
