@@ -20,6 +20,7 @@ from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 import json
+import requests
 
 import logging
 logger = logging.getLogger("logger")
@@ -139,6 +140,7 @@ def get_events(request):
                 "description": "花一小时时间，学习如何使用我们的计划工具！",
                 "importance": "important",
                 "urgency": "urgent",
+                "groupID": "1"
             }
         ])})
 
@@ -331,6 +333,205 @@ def create_events_group(request):
     return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
 
 
+
+@login_required
+@csrf_exempt
+def update_event_group(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        group_id = data.get('groupID')
+        title = data.get('title')
+        description = data.get('description')
+        color = data.get('color')
+        logger.debug(group_id)
+
+        user_data, created = UserData.objects.get_or_create(user=request.user, key="events_groups")
+        events_groups = json.loads(user_data.value)
+
+        for group in events_groups:
+            if group['id'] == group_id:
+                group['name'] = title
+                group['description'] = description
+                group['color'] = color
+                break
+
+        user_data.value = json.dumps(events_groups)
+        user_data.save()
+
+        return JsonResponse({'status': 'success'})
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
+
+
+
+@login_required
+@csrf_exempt
+def delete_event_groups(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        group_ids = data.get('groupIds', [])
+        delete_events = data.get('deleteEvents', False)
+
+        user_data, created = UserData.objects.get_or_create(user=request.user, key="events_groups")
+        events_groups = json.loads(user_data.value)
+
+        user_data_events, created = UserData.objects.get_or_create(user=request.user, key="events")
+        events = json.loads(user_data_events.value)
+
+        # 删除日程组
+        events_groups = [group for group in events_groups if group['id'] not in group_ids]
+
+        # 如果需要删除日程组下的所有日程
+        if delete_events:
+            events = [event for event in events if event['groupID'] not in group_ids]
+
+        # 更新数据库
+        user_data.value = json.dumps(events_groups)
+        user_data.save()
+
+        user_data_events.value = json.dumps(events)
+        user_data_events.save()
+
+        return JsonResponse({'status': 'success'})
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
+
+
+import json
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from .models import UserData
+
+@login_required
+@csrf_exempt
+def import_events(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        cookie = data.get('cookie')
+        group_id = data.get('groupId')
+
+        if not cookie or not group_id:
+            return JsonResponse({'status': 'error', 'message': 'Missing cookie or group ID'}, status=400)
+
+        # 从指定网站获取日程数据（示例逻辑）
+        try:
+            # 假设从某个网站获取日程数据
+            imported_events = json.loads(get_response_data(cookie))  # 自定义函数，从网站获取数据
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+        # 获取用户的所有日程组
+        user_data_groups, created = UserData.objects.get_or_create(user=request.user, key="events_groups")
+        events_groups = json.loads(user_data_groups.value)
+
+        # 获取用户的所有事件
+        user_data_events, created = UserData.objects.get_or_create(user=request.user, key="events")
+        events = json.loads(user_data_events.value)
+
+        # 将新获取的日程数据导入到指定的日程组
+        for event in imported_events:
+            event['groupID'] = group_id
+
+        events += imported_events
+
+        # 更新数据库
+        user_data_events.value = json.dumps(events)
+        user_data_events.save()
+
+        return JsonResponse({'status': 'success'})
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
+
+
+
+
+def transform_json_data(json_str):
+    """
+    将输入的 JSON 字符串转换为指定格式。
+
+    参数:
+        json_str (str): 原始 JSON 字符串。
+
+    返回:
+        str: 转换后的 JSON 字符串。
+    """
+    try:
+        # 解析原始 JSON 数据
+        data = json.loads(json_str)
+
+        # 转换每个字典
+        transformed_data = []
+        for item in data:
+            # 确保时间字符串包含秒部分
+            start_time = item["start"]
+            end_time = item["end"]
+
+            if len(start_time.split(":")) == 2:  # 如果只有小时和分钟
+                start_time += ":00"
+            if len(end_time.split(":")) == 2:  # 如果只有小时和分钟
+                end_time += ":00"
+
+            transformed_item = {
+                "id": str(uuid.uuid4()),
+                "title": item["title"],
+                "start": datetime.datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S").isoformat().replace("+00:00", "Z"),
+                "end": datetime.datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S").isoformat().replace("+00:00", "Z"),
+                "description": item.get("showmsg", ""),  # 如果 showmsg 不存在，则为空字符串
+                "importance": "",
+                "urgency": "",
+                "groupID": ""
+            }
+            transformed_data.append(transformed_item)
+
+        # 将结果转换为 JSON 字符串
+        return json.dumps(transformed_data, ensure_ascii=False, indent=4)
+
+    except json.JSONDecodeError as e:
+        print(f"JSON 解析错误: {e}")
+        return None
+    except Exception as e:
+        print(f"转换错误: {e}")
+        return None
+
+def get_response_data(cookie):
+    cookie = cookie.strip()  # 去除首尾空格
+    cookie = cookie.replace(' ', '')  # 去除中间的空格
+
+# 目标 URL
+    url = "https://jwxs.muc.edu.cn/main/queryMyProctorFull"
+
+    # 请求头（根据浏览器提供的信息）
+    headers = {
+        "Cookie": cookie,
+        "Referer": "https://jwxs.muc.edu.cn/index",
+    }
+
+    # POST 请求的表单数据（根据实际需要填写）
+    response_data = {
+        "flag": "1"  # 示例数据，根据实际需求调整
+    }
+
+    # 发送 POST 请求
+    response = requests.post(url, headers=headers, data=response_data)
+
+    # 检查响应
+    if response.status_code == 200:
+        print("请求成功！")
+    else:
+        print(f"请求失败，状态码：{response.status_code}")
+        print("响应内容：")
+        print(response.text)  # 打印错误信息
+
+    if response.status_code == 200:
+        response_data = json.loads(response.text)["data"]
+
+
+    result = transform_json_data(response_data)
+
+    return result
+
+
+
+
+
+
 def get_resources(request):
     user_data, created = UserData.objects.get_or_create(user=request.user, key="resources", defaults={"value": json.dumps([
         { "id": "a", "title": "Auditorium A", "occupancy": 40 },
@@ -343,4 +544,5 @@ def get_resources(request):
     ])})
     resources = user_data.get_value()
     return JsonResponse(resources, safe=False)
+
 
