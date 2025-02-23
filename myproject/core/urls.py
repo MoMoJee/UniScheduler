@@ -14,5 +14,6 @@ urlpatterns = [
     path('get_calendar/update_events/', views.update_events, name='update_events'),
     path('get_calendar/delete_event/', views.delete_event, name='delete_event'),
     path('get_calendar/create_event/', views.create_event, name='create_event'),
+    path('get_calendar/create_events_group/', views.create_events_group, name='create_events_group'),
     path('get_calendar/resources/', views.get_resources, name='get_resources'),
 ]

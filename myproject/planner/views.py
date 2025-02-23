@@ -23,23 +23,31 @@ def ai_suggestions(request):
         # 获取用户的所有事件
         user_data, created = UserData.objects.get_or_create(user=request.user, key="events")
         events = json.loads(user_data.value)
+        # 遍历列表中的每个字典，移除 "groupID" 字段，节省tokens
+        for event in events:
+            event.pop("groupID", None)  # 如果 "groupID" 不存在，不会报错
         events = convert_time_format(events)
+
+
+
         # 示例操作逻辑：更新某些事件的时间
         updated_events = []
         default_words = default_sentence()
         ai_input = default_words + [{'role': 'user', 'content': f'{str(events)}'}]
         response = ai_reply(ai_input)
         ai_advice = response['response']
+
         print(ai_advice)
+
         # 调用函数解析AI回复
-        # ai_advice = json.loads(ai_advice)
-        # suggestions = ai_advice[len(ai_advice) + 1]
-        # schedule_list = ai_advice[0: len(ai_advice)]
         suggestions, schedule_list = parse_ai_response(ai_advice)
 
 
         logger.debug(f'AI建议了：{suggestions}')
         logger.debug(f'AI计划了：{schedule_list}')
+
+        final_suggestion = str(suggestions)
+
 
         # 遍历所有原始事件，更新时间或保留原始时间
         updated_events = []
@@ -68,7 +76,7 @@ def ai_suggestions(request):
 
 
 
-        return JsonResponse({"events": updated_events})
+        return JsonResponse({"events": updated_events, "suggestions": final_suggestion})
     return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
 
 
