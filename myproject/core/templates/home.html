@@ -81,6 +81,22 @@
             cursor: pointer;
         }
 
+        .group-item {
+            display: flex;
+            align-items: center; /* 垂直居中对齐 */
+            justify-content: flex-start; /* 水平起始对齐 */
+            gap: 10px; /* 子元素之间的间距 */
+            margin-bottom: 10px; /* 每个列表项之间的间距 */
+        }
+
+        .group-item label {
+            flex-grow: 1; /* 让标签占据剩余空间 */
+        }
+
+        .group-item button {
+            margin-left: auto; /* 将按钮推到右侧 */
+        }
+
 
 
 
@@ -117,13 +133,26 @@
 <a href="/user_data">我的</a>
 <br/>
 <button id="editEventGroupsButton">编辑日程组</button>
-
+<button id="importEventsButton">导入日程</button>
+<div id="importEventsModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeImportEventsModal()">&times;</span>
+        <h2>导入日程</h2>
+        <p><strong>Cookie：</strong> <input type="text" id="importCookie"></p>
+        <p><strong>选择日程组：</strong>
+            <select id="importGroupId">
+                <!-- 动态生成日程组选项 -->
+            </select>
+        </p>
+        <button onclick="importEvents()">导入</button>
+    </div>
+</div>
 <br/>
 <div id="calendar"></div>
 <!-- 点击后弹出的对话框 -->
 <div id="myModal" class="modal">
     <div class="modal-content">
-        <span class="close">&times;</span>
+        <span class="close" onclick="closeUpdateEventFromModal()">&times;</span>
         <p><strong>日程名称：</strong> <input type="text" id="eventTitle"></p>
         <p><strong>从：</strong> <input type="datetime-local" id="eventStart"></p>
         <p><strong>到：</strong> <input type="datetime-local" id="eventEnd"></p>
@@ -225,6 +254,8 @@
         <button id="deleteOptionsButton2">删除日程组及所有日程</button>
     </div>
 </div>
+
+
 
 <!--<script src='https://cdn.jsdelivr.net/npm/fullcalendar/index.global.min.js'></script>-->
 <!--上面是让浏览器自行下载fullcalendar的意思-->
@@ -466,6 +497,11 @@
         document.getElementById('myModal').style.display = 'none';
     }
 
+    // 关闭
+    function closeUpdateEventFromModal() {
+        document.getElementById('myModal').style.display = 'none';
+    }
+
 
     function deleteEvent() {
         // 从隐藏的输入框中获取 eventId
@@ -703,17 +739,17 @@
     }
 
     function updateEventGroup() {
-        var groupId = document.getElementById('groupId').value;
+        var groupID = document.getElementById('groupId').value;
         var title = document.getElementById('groupTitle').value;
         var description = document.getElementById('groupDescription').value;
         var color = document.getElementById('groupColor').value;
 
-        fetch('/update_event_group/', {
+        fetch('/get_calendar/update_events_group/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ groupId, title, description, color })
+            body: JSON.stringify({ groupID, title, description, color })
         })
             .then(response => response.json())
             .then(data => {
@@ -766,7 +802,7 @@
     }
 
     function deleteEventGroups(groupIds, deleteEvents) {
-        fetch('/delete_event_groups/', {
+        fetch('/get_calendar/delete_event_groups/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -786,6 +822,78 @@
     function closeDeleteOptionsModal() {
         const modal = document.getElementById('deleteOptionsModal');
         modal.style.display = 'none';
+    }
+
+
+    // 下面是导入日程的代码
+
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('importEventsButton').addEventListener('click', function() {
+            fetch('/get_calendar/events/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.events_groups) {
+                        showImportEventsModal(data.events_groups);
+                    }
+                })
+                .catch(error => console.error('Error fetching event groups:', error));
+        });
+    });
+
+    function showImportEventsModal(groups) {
+        const modal = document.getElementById('importEventsModal');
+        const groupIdSelect = document.getElementById('importGroupId');
+
+        // 清空之前的列表
+        groupIdSelect.innerHTML = '<option value="">选择日程组</option>';
+
+        // 为每个日程组创建一个选项
+        groups.forEach(group => {
+            const option = document.createElement('option');
+            option.value = group.id;
+            option.text = group.name;
+            groupIdSelect.appendChild(option);
+        });
+
+        modal.style.display = 'block';
+    }
+
+    function closeImportEventsModal() {
+        const modal = document.getElementById('importEventsModal');
+        modal.style.display = 'none';
+    }
+
+    function importEvents() {
+        const cookie = document.getElementById('importCookie').value;
+        const groupId = document.getElementById('importGroupId').value;
+
+        if (!cookie || !groupId) {
+            alert('请输入Cookie并选择日程组');
+            return;
+        }
+
+        fetch('/get_calendar/import_events/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ cookie, groupId })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('日程导入成功');
+                    location.reload(); // 刷新页面以获取最新的日程数据
+                } else {
+                    alert('导入失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error importing events:', error);
+                alert('导入失败: ' + error.message);
+            });
+
+        closeImportEventsModal();
     }
 
 
