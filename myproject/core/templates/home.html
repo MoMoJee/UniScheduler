@@ -56,6 +56,31 @@
             background-color: #ccc; /* 灰色背景表示选中 */
         }
 
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover {
+            color: black;
+            cursor: pointer;
+        }
+
 
 
 
@@ -90,6 +115,8 @@
 <a href="/about">关于我们</a>
 <br/>
 <a href="/user_data">我的</a>
+<br/>
+<button id="editEventGroupsButton">编辑日程组</button>
 
 <br/>
 <div id="calendar"></div>
@@ -162,6 +189,40 @@
             <p><strong>日程组颜色：</strong> <input type="color" id="newGroupColor" required></p>
             <button type="submit">创建</button>
         </form>
+    </div>
+</div>
+
+<!--编辑日程组弹出框-->
+<div id="editEventGroupsModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeEditEventGroupsModal()">&times;</span>
+        <h2>编辑日程组</h2>
+        <div id="eventGroupsList"></div>
+        <button id="deleteSelectedGroups" style="display: none;">删除</button>
+    </div>
+</div>
+
+<!--编辑日程组对话框-->
+<div id="editEventGroupModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeEditEventGroupModal()">&times;</span>
+        <h2>编辑日程组</h2>
+        <p><strong>名称：</strong> <input type="text" id="groupTitle"></p>
+        <p><strong>描述：</strong> <textarea id="groupDescription"></textarea></p>
+        <p><strong>颜色：</strong> <input type="color" id="groupColor"></p>
+        <input type="hidden" id="groupId">
+        <button onclick="updateEventGroup()">保存</button>
+    </div>
+</div>
+
+<!--删除选项对话框-->
+<div id="deleteOptionsModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeDeleteOptionsModal()">&times;</span>
+        <h2>删除选项</h2>
+        <p>请选择删除方式：</p>
+        <button id="deleteOptionsButton1">只删除日程组</button>
+        <button id="deleteOptionsButton2">删除日程组及所有日程</button>
     </div>
 </div>
 
@@ -300,14 +361,7 @@
                                 const groupID = String(event.groupID); // 确保 groupID 是字符串
                                 const group = window.events_groups.find(group => String(group.id) === groupID); // 确保 group.id 也是字符串
 
-                                if (group) {
-                                    console.log("WIN");
-                                } else {
-                                    console.log("LOSE");
-                                    console.log(data.events, window.events_groups);
-                                }
-
-                                const groupColor = group ? group.color : '#600'; // 默认颜色
+                                const groupColor = group ? group.color : '#999'; // 默认颜色
                                 return {
                                     ...event,
                                     backgroundColor: groupColor,
@@ -339,6 +393,8 @@
         });
 
 
+
+
         calendar.render();
     })
 
@@ -348,16 +404,26 @@
     });
 
 
-    // 添加按钮点击事件监听器
-    document.getElementById('createEventGroupButton').addEventListener('click', function() {
-        openCreateEventGroupModal();
-    });
-    // 此功能已经被fullcalendar自定义按钮回调取代！
+
 
     // 处理创建日程组的表单提交
     document.getElementById('createEventGroupForm').addEventListener('submit', function(event) {
         event.preventDefault();
         createEventGroup();
+    });
+
+    // 监听编辑日程组按钮
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('editEventGroupsButton').addEventListener('click', function() {
+            fetch('/get_calendar/events/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.events_groups) {
+                        showEditEventGroupsModal(data.events_groups);
+                    }
+                })
+                .catch(error => console.error('Error fetching event groups:', error));
+        });
     });
 
 
@@ -519,6 +585,9 @@
     }
 
 
+    // 下面都是日程组编辑功能
+
+
     function openCreateEventGroupModal() {
         document.getElementById('createEventGroupModal').style.display = 'block';
     }
@@ -552,6 +621,171 @@
                 }
             })
             .catch(error => console.error('创建日程组失败:', error));
+    }
+
+
+
+    function showEditEventGroupsModal(groups) {
+        const modal = document.getElementById('editEventGroupsModal');
+        const groupsList = document.getElementById('eventGroupsList');
+        const deleteButton = document.getElementById('deleteSelectedGroups');
+
+        // 清空之前的列表
+        groupsList.innerHTML = '';
+
+        // 为每个日程组创建一个列表项
+        groups.forEach(group => {
+            const groupItem = document.createElement('div');
+            groupItem.className = 'group-item';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = `group-${group.id}`;
+            checkbox.value = group.id;
+
+            const label = document.createElement('label');
+            label.htmlFor = checkbox.id;
+            label.textContent = group.name;
+
+            const editButton = document.createElement('button');
+            editButton.textContent = '编辑';
+            editButton.onclick = function() {
+                editEventGroup(group.id);
+            };
+
+            groupItem.appendChild(checkbox);
+            groupItem.appendChild(label);
+            groupItem.appendChild(editButton);
+            groupsList.appendChild(groupItem);
+        });
+
+        // 显示删除按钮
+        deleteButton.style.display = 'block';
+        deleteButton.onclick = function() {
+            const selectedGroups = Array.from(document.querySelectorAll('input[type="checkbox"]:checked')).map(checkbox => checkbox.value);
+            if (selectedGroups.length > 0) {
+                showDeleteOptions(selectedGroups);
+            }
+        };
+
+        modal.style.display = 'block';
+    }
+
+    function closeEditEventGroupsModal() {
+        const modal = document.getElementById('editEventGroupsModal');
+        modal.style.display = 'none';
+    }
+
+    function editEventGroup(groupId) {
+        // 弹出编辑日程组的对话框
+        const group = window.events_groups.find(group => group.id === groupId);
+        if (group) {
+            const modal = document.getElementById('editEventGroupModal');
+            const closeBtn = document.getElementsByClassName('close')[1];
+
+            document.getElementById('groupTitle').value = group.name;
+            document.getElementById('groupDescription').value = group.description;
+            document.getElementById('groupColor').value = group.color;
+            document.getElementById('groupId').value = groupId;
+
+            modal.style.display = 'block';
+
+            closeBtn.onclick = function() {
+                modal.style.display = 'none';
+            };
+
+            window.onclick = function(event) {
+                if (event.target == modal) {
+                    modal.style.display = 'none';
+                }
+            };
+        }
+    }
+
+    function updateEventGroup() {
+        var groupId = document.getElementById('groupId').value;
+        var title = document.getElementById('groupTitle').value;
+        var description = document.getElementById('groupDescription').value;
+        var color = document.getElementById('groupColor').value;
+
+        fetch('/update_event_group/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ groupId, title, description, color })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('日程组更新成功');
+                    location.reload(); // 刷新页面以获取最新的日程组数据
+                } else {
+                    alert('更新失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error updating event group:', error);
+                alert('更新失败: ' + error.message);
+            });
+
+        // 关闭编辑日程组的对话框
+        closeEditEventGroupModal();
+    }
+
+    function closeEditEventGroupModal() {
+        const modal = document.getElementById('editEventGroupModal');
+        modal.style.display = 'none';
+    }
+
+    function showDeleteOptions(selectedGroups) {
+        const modal = document.getElementById('deleteOptionsModal');
+        const closeBtn = document.getElementsByClassName('close')[2];
+
+        modal.style.display = 'block';
+
+        document.getElementById('deleteOptionsButton1').onclick = function() {
+            deleteEventGroups(selectedGroups, false); // 只删除日程组，保留日程
+            modal.style.display = 'none';
+        };
+
+        document.getElementById('deleteOptionsButton2').onclick = function() {
+            deleteEventGroups(selectedGroups, true); // 删除日程组及所有日程
+            modal.style.display = 'none';
+        };
+
+        closeBtn.onclick = function() {
+            modal.style.display = 'none';
+        };
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        };
+    }
+
+    function deleteEventGroups(groupIds, deleteEvents) {
+        fetch('/delete_event_groups/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ groupIds, deleteEvents })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('日程组删除成功');
+                    location.reload(); // 刷新页面
+                }
+            })
+            .catch(error => console.error('Error deleting event groups:', error));
+    }
+
+    function closeDeleteOptionsModal() {
+        const modal = document.getElementById('deleteOptionsModal');
+        modal.style.display = 'none';
     }
 
 
