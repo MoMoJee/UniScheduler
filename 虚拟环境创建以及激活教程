@@ -1,0 +1,30 @@
+1.打开终端，这里我们使用cmd作为示范。
+快捷键win+R，输入cmd，按enter会弹出终端界面!
+终端跳出来的那一行是当前工作目录
+如果你的终端的工作目录是在与我们项目文件不同的驱动器上
+通过在驱动输入其他驱动器来进行更换
+eg：初始默认在c盘，切换到d盘驱动器就在cmd中输入D:
+然后讲目录切换到我们项目目录，使用cd 【目录绝对路径】
+eg：cd D:\Python\UniScheduler
+2.现在我们创建虚拟环境
+输入python -m venv venv
+这在当前目录下创建了一个名为 venv 的虚拟环境
+这个命令会在 D:\Python\UniScheduler 目录下创建一个 venv 文件夹
+其中包含了虚拟环境的所有文件
+3.现在我们激活虚拟环境
+输入D:\Python\UniScheduler\venv\Scripts\activate
+（ps：venv文件前用你们自己的路径，和我的不一样）
+这将激活虚拟环境
+激活后，命令行提示符前会显示 (.venv)，表示当前正在使用虚拟环境。
+4.激活虚拟环境后，你可以使用 pip 安装依赖，这些依赖将只安装在虚拟环境中：
+输入pip install package_name
+package_name是包的名字，pip会通过包的名字去自动下载依赖
+我们在这里输入pip install -r requirements.txt
+requirements.txt是momojee将我们虚拟环境所需的依赖的名字写进去的一个txt文本
+pip会通过里面的包的名字自动下载他们
+但是momojee没有把这个文件放在UniScheduler文件夹里面，pip只会在当前工作目录中查找文件
+这里有两个方法
+1.将当前工作目录改为requirements.txt所在的目录
+2.把requirements.txt文件移到UniScheduler文件夹里面
+
+要退出虚拟环境，只需在终端运行：deactivate
