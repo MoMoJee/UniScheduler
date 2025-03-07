@@ -255,7 +255,10 @@
     </div>
 </div>
 
-
+<!--<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.15/main.min.js"></script>-->
+<!--<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid@6.1.15/main.min.js"></script>-->
+<!--<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/timegrid@6.1.15/main.min.js"></script>-->
+<!--<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/interaction@6.1.15/main.min.js"></script>-->
 
 <!--<script src='https://cdn.jsdelivr.net/npm/fullcalendar/index.global.min.js'></script>-->
 <!--上面是让浏览器自行下载fullcalendar的意思-->
@@ -278,6 +281,14 @@
             eventResize: function (info) {
                 updateEvent(info.event.id, info.event.start.toISOString(), info.event.end.toISOString(), info.event.title, info.event.extendedProps.description, info.event.extendedProps.importance, info.event.extendedProps.urgency, info.event.extendedProps.groupID);
             },
+
+            datesSet: function(viewInfo) {
+                // 调用后端接口保存当前视图类型和日期范围
+
+                //！！！！！这里有个BUG，你点击刷新，这里会自动跳到初始视图，把页面数据发送。因此后台做了一个处理，过滤这种
+                saveCurrentView(viewInfo.view.type, viewInfo.start, viewInfo.end);
+            },
+
 
             eventClick: function (info) {
                 var modal = document.getElementById('myModal');
@@ -426,13 +437,51 @@
 
 
 
+        // 页面加载时恢复视图
+        initCalendar(calendar);
         calendar.render();
+
+
+
     })
+
+    function initCalendar(calendar) {
+        fetch("/get_calendar/user_settings")
+            .then(response => response.json())
+            .then(data => {
+                const nowView = data.message.now_view;
+
+                if (nowView.viewType) {
+                    calendar.changeView(nowView.viewType, new Date(nowView.start));
+                }
+
+                if (nowView.start) {
+                    calendar.gotoDate(new Date(nowView.start));
+                }
+            });
+    }
+
+
+    // 调用后端接口保存当前视图类型和日期范围
+    function saveCurrentView(viewType, start, end) {
+        fetch('/get_calendar/change_view/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                viewType: viewType,
+                start: start.toISOString(),
+                end: end.toISOString()
+            })
+        });
+    }
 
     document.getElementById('createEventForm').addEventListener('submit', function (event) {
         event.preventDefault();
         createEvent();
     });
+
 
 
 

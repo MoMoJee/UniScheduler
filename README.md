@@ -169,21 +169,13 @@ logger.critical("This is a critical message")
 # 这是调用日志器
 ```
 
-
-
-
-
 ## 2. 快速部署
 
 ### 2.1 项目依赖与版本
 
 项目指定解释器版本为<mark>python3.12</mark>
 
-
-
 运行时可以尝试激活虚拟环境：
-
-
 
 ```bash
 cd 你的路径/UniScheduler
@@ -200,8 +192,6 @@ cd 你的路径/UniScheduler
 pip install -r requirements.txt
 ```
 
-
-
 注意安装完、运行2.2的命令后，有时候还会报错：
 
 ```bash
@@ -213,8 +203,6 @@ OSError: [WinError 126] 找不到指定的模块。 Error loading "D:\PYTHONS\Py
  解决方法：
 
 你需要下载并安装Microsoft Visual C++ Redistributable。根据错误信息，推荐的下载链接是： https://aka.ms/vs/16/release/vc_redist.x64.exe
-
-
 
 ### 2.2 项目运行
 
@@ -232,16 +220,11 @@ python manage.py runserver x.x.x.x:xxxx
 D:\python_learn\python.exe manage.py runserver x.x.x.x:xxxx
 ```
 
-
-
 关于x.x.x.x:xxxx，这就是你网站运行的地址，比如127.0.0.1:8000，就运行在本地；0.0.0.0:8000，就运行在局域网，这可以随意指定。如果你有公网IP或者内外穿透等映射，也可改成你电脑上所要映射的端口号
-
-
 
 ### 2.3 网站管理
 
 在开始运行2.2的代码之前，可以创建管理员账户，具体来说：
-
 
 ---
 
@@ -369,7 +352,5 @@ User.objects.create_superuser('admin', 'admin@example.com', 'your_password')
 4. 启动开发服务器并访问 `/admin` 验证管理员账户。
 
 如果需要重置密码或在生产环境中创建管理员账户，可以使用 Django shell 或其他安全方式。
-
-
 
 ---
