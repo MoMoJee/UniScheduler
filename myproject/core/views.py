@@ -158,7 +158,6 @@ def add_8_hours_to_time_data(data):
         # 转换回 ISO 8601 格式的字符串
         return new_time_obj.isoformat() + 'Z'
 
-    print(data)
 
     # 检查输入字典是否包含必要的字段
     if 'now_view' in data and 'start' in data['now_view'] and 'end' in data['now_view']:
