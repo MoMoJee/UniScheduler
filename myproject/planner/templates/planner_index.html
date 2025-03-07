@@ -692,7 +692,6 @@
                 displayDialogue();
                 tempEvents = data.tempEvents;
                 updateTempEvents();
-                console.log(data)
             })
             .catch(error => console.error('Error fetching previous dialogue:', error));
     });
@@ -794,12 +793,6 @@
     function updateTempEvents() {
         // 在这里可以更新前端显示的临时日程数据
     }
-
-    // document.querySelector('.ai-dialogue-close').disabled = true;
-    // document.getElementById('mergeTempEvents').disabled = true;
-    // document.querySelector('.ai-dialogue-close').disabled = false;
-    // document.getElementById('mergeTempEvents').disabled = false;
-    // document.getElementById('aiEventGroupId').disabled = false;
 
     document.getElementById('mergeTempEvents').addEventListener('click', function() {
         // 合并 tempEvents 到主事件数据

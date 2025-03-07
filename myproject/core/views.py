@@ -1,25 +1,16 @@
 
 # Create your views here.
 import datetime
-import pytz
-from accelerate.commands.config.update import description
 from django.views.decorators.csrf import csrf_exempt
-from pydantic import UUID1
-
 from .forms import RegisterForm
 from django.contrib.auth import login, authenticate
 from django.contrib.auth.forms import AuthenticationForm
-from django.shortcuts import redirect
 from django.contrib.auth import logout
 from django.shortcuts import render
-from .models import UserData
 import uuid
 import markdown
 from datetime import timedelta
-from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
-from django.utils import timezone
-import json
 import requests
 
 import logging
@@ -131,7 +122,6 @@ def change_view(request):
         while len(user_settings) >= 10:
             del user_settings[0]
 
-        logger.debug(user_settings)
         user_data.set_value(user_settings)
         user_data.save()
 
@@ -195,7 +185,6 @@ def user_settings(request):
     if request.method == 'GET':
         user_data, created = UserData.objects.get_or_create(user=request.user, key="user_settings", defaults={"value": json.dumps([])})
         user_settings = user_data.get_value()
-        logger.debug(user_settings[-2])
         # 这里，我们选择返回数据库中（经过处理后的）最新的日程
 
         return JsonResponse({'status': 'success', 'message': user_settings[-2]}, status=200)
@@ -302,7 +291,6 @@ def update_events(request):
                 event['importance'] = importance
                 event['urgency'] = urgency
                 event['groupID'] = group_id
-                logger.debug(f'日程更新，详情：{event}')
                 # 将更新后的数据保存回数据库
                 user_data.value = json.dumps(events)
                 user_data.save()
@@ -320,7 +308,6 @@ def update_events(request):
                 event['importance'] = importance
                 event['urgency'] = urgency
                 event['groupID'] = group_id
-                logger.debug(f'日程更新，详情：{event}')
                 # 将更新后的数据保存回数据库
                 planner_data["temp_events"] = temp_events
                 user_temp_events_data.value = json.dumps(planner_data)
@@ -398,7 +385,6 @@ def delete_event(request):
         except json.JSONDecodeError:
             return JsonResponse({'status': 'error', 'message': 'Invalid JSON data'}, status=400)
 
-        logger.debug(f'指定了要删除的日程代码：{event_id}')
 
         if event_id is None:
             return JsonResponse({'status': 'error', 'message': 'eventId is missing'}, status=400)
@@ -468,7 +454,6 @@ def update_event_group(request):
         title = data.get('title')
         description = data.get('description')
         color = data.get('color')
-        logger.debug(group_id)
 
         user_data, created = UserData.objects.get_or_create(user=request.user, key="events_groups")
         events_groups = json.loads(user_data.value)
