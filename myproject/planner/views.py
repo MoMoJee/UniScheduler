@@ -26,10 +26,36 @@ def ai_suggestions(request):
         # 获取用户的所有事件
         user_data, created = UserData.objects.get_or_create(user=request.user, key="events")
         events = json.loads(user_data.value)
+        all_events = json.loads(user_data.value)
         # 遍历列表中的每个字典，移除 "groupID" 字段，节省tokens
         for event in events:
             event.pop("groupID", None)  # 如果 "groupID" 不存在，不会报错
         events = convert_time_format(events)
+
+        # 获取规划时间范围
+        user_data_planner, created = UserData.objects.get_or_create(
+            user=request.user,
+            key="planner",
+        )
+
+
+        planner_data = json.loads(user_data_planner.value)
+        time_range = planner_data["ai_planning_time"]
+
+        # 筛选在时间范围内的事件
+        filtered_events = []
+        if 'start' in time_range and 'end' in time_range:
+            time_range_start = datetime.fromisoformat(time_range['start'])
+            time_range_end = datetime.fromisoformat(time_range['end'])
+
+            for event in events:
+                event_start = datetime.fromisoformat(event['start'])
+                event_end = datetime.fromisoformat(event['end'])
+
+                # 检查事件是否完全在时间范围内
+                if time_range_start <= event_start and event_end <= time_range_end:
+                    filtered_events.append(event)
+
 
 
 
@@ -42,7 +68,7 @@ def ai_suggestions(request):
 
 
 
-        dialogues.append({"role": "user", "content": str(events)})
+        dialogues.append({"role": "user", "content": str(filtered_events)})
 
         with open("default_files/AI_setting.json", 'r', encoding='utf-8') as file:
             ai_settings = json.load(file)
@@ -50,7 +76,6 @@ def ai_suggestions(request):
 
 
         user_data, created = UserData.objects.get_or_create(user=request.user, key="setting", defaults={"value": json.dumps({"AI_setting_code": 4})})
-        # 需要注意的是，这种存储方式非常危险，用户可以很简单地获取
 
 
         ai_setting = {
@@ -74,12 +99,16 @@ def ai_suggestions(request):
         logger.debug(f'AI建议了：{suggestion}')
         logger.debug(f'AI计划了：{schedule_list}')
 
-        final_suggestion = suggestion["我的建议"]
+
+        try:
+            final_suggestion = suggestion["我的建议"]
+        except:
+            final_suggestion = "AI什么也没说"
 
 
         # 遍历所有原始事件，更新时间或保留原始时间
         updated_events = []
-        for original_event in events:
+        for original_event in all_events:
             matched = False
             for ai_event in schedule_list:
                 if ai_event.get("id") == original_event.get("id"):
@@ -89,6 +118,17 @@ def ai_suggestions(request):
                         "newStart": ai_event["start"],
                         "newEnd": ai_event["end"]
                     })
+                    # 更新 temp_events
+                    planner_data["temp_events"].append({
+                        "id": original_event["id"],
+                        "title": original_event["title"],
+                        "start": ai_event["start"],
+                        "end": ai_event["end"],
+                        "description": original_event["description"],
+                        "importance": original_event["importance"],
+                        "urgency": original_event["urgency"],
+                        "groupID": original_event["groupID"]  # 存储 groupId
+                    })
                     matched = True
                     break
             if not matched:
@@ -96,9 +136,14 @@ def ai_suggestions(request):
                 updated_events.append({
                     "eventId": original_event["id"],
                     "newStart": original_event["start"],
-                    "newEnd": original_event["end"]
+                    "newEnd": original_event["end"],
                 })
 
+            # TODO 这里还差一个逻辑，把已经修改的日程从主events剔除
+
+
+            user_data_planner.value = json.dumps(planner_data)
+            user_data_planner.save()
 
         return JsonResponse({"events": updated_events, "suggestions": final_suggestion})
     return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
@@ -115,6 +160,37 @@ def ai_create(request):
         user_input = data.get('input')
 
         group_id = data.get('group_id')
+
+        user_planner_data, created = UserData.objects.get_or_create(
+            user=request.user,
+            key="planner",
+        )
+        # 这里其实重复获取了，后面又导入了一次，但我懒得改
+        user_events_data, created = UserData.objects.get_or_create(user=request.user, key="events")
+        events = json.loads(user_events_data.value)
+
+        planner_data = json.loads(user_planner_data.value)
+        ai_planning_time = planner_data['ai_planning_time']
+
+        # 筛选在时间范围内的事件
+        filtered_events = []
+        if 'start' in ai_planning_time and 'end' in ai_planning_time:
+            time_range_start = datetime.fromisoformat(ai_planning_time['start'])
+            time_range_end = datetime.fromisoformat(ai_planning_time['end'])
+
+            for event in events:
+                event_start = datetime.fromisoformat(event['start'])
+                event_end = datetime.fromisoformat(event['end'])
+
+                # 检查事件是否完全在时间范围内
+                if time_range_start <= event_start and event_end <= time_range_end:
+                    filtered_events.append(event)
+
+        for event in filtered_events:
+            event.pop("groupID", None)  # 如果 "groupID" 不存在，不会报错
+            event.pop("id", None)  # 如果 "groupID" 不存在，不会报错
+            event.pop("groupID", None)  # 如果 "groupID" 不存在，不会报错
+
 
         # AI设置
         json_file_path = "default_files/planner.json"  # 替换为你的 JSON 文件路径
@@ -157,7 +233,9 @@ def ai_create(request):
 
         planner_data = json.loads(user_data.value)
         dialogues += planner_data["dialogue"]
+        dialogues.append({"role": "user", "content": f"我已经确定了如下日程，请你尽量别影响这些已经安排的日程：{str(filtered_events)}"})
         dialogues.append({"role": "user", "content": f"{time_str}  {str(user_input)}"})
+        logger.debug(dialogues)
 
         # 解析AI回复
         # reply = ai_reply(dialogues, ai_setting)["response"]
@@ -279,7 +357,8 @@ def merge_temp_events(request):
 
         user_planner_data.value = json.dumps({
             "dialogue": [],
-            "temp_events": []
+            "temp_events": [],
+            "ai_planning_time": {}
         })
         # 重置planner中的字段
 
@@ -287,6 +366,80 @@ def merge_temp_events(request):
 
         return JsonResponse({"status": "success"})
     return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
+
+
+
+# 用来标记一段时间，存入用户数据库，给AI规划用
+@login_required
+@csrf_exempt
+def add_to_ai_planning_time(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            start_time = data.get('start')
+            end_time = data.get('end')
+
+            if not start_time or not end_time:
+                return JsonResponse({'status': 'error', 'message': 'Missing start or end time'}, status=400)
+
+            user_data, created = UserData.objects.get_or_create(
+                user=request.user,
+                key="planner",
+            )
+
+            planner_data = json.loads(user_data.value)
+            planner_data['ai_planning_time'] = {
+                'start': start_time,
+                'end': end_time
+            }
+
+            user_data.value = json.dumps(planner_data)
+            user_data.save()
+
+            return JsonResponse({'status': 'success'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
+
+
+# 批量删除日程
+@login_required
+@csrf_exempt
+def delete_events_in_range(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            start_time = data.get('start')
+            end_time = data.get('end')
+
+            logger.debug(f'{start_time}, {end_time}')
+
+            if not start_time or not end_time:
+                return JsonResponse({'status': 'error', 'message': 'Missing start or end time'}, status=400)
+
+            user_data, created = UserData.objects.get_or_create(
+                user=request.user,
+                key="events",
+                defaults={"value": json.dumps([])}
+            )
+            events = json.loads(user_data.value)
+
+            # 过滤出完全在指定时间范围内的事件
+            events_to_keep = [
+                event for event in events
+                if not (event['start'] >= start_time and event['end'] <= end_time)
+            ]
+
+            user_data.value = json.dumps(events_to_keep)
+            user_data.save()
+
+            return JsonResponse({'status': 'success'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
+
+
+
 
 
 # AI回复的代码，AI生成和AI建议都用这个

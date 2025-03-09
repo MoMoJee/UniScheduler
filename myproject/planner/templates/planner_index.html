@@ -215,6 +215,29 @@
             cursor: not-allowed;
         }
 
+        .selection-dialog {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+
+        .selection-dialog-content {
+            text-align: center;
+        }
+
+        .selection-dialog-content button {
+            display: block;
+            margin: 10px auto;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+
 
 
         /*!* 深色主题的自定义样式 *!*/
@@ -268,9 +291,7 @@
 <br/>
 <h1>计划师</h1>
 <div id="calendar"></div>
-<!--<div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; text-align: center; padding-top: 50%;">-->
-<!--    <h1>Loading...</h1>-->
-<!--</div>-->
+
 
 
 <!-- 点击后弹出的对话框 -->
@@ -342,6 +363,18 @@
             <p><strong>日程组颜色：</strong> <input type="color" id="newGroupColor" required></p>
             <button type="submit">创建</button>
         </form>
+    </div>
+</div>
+
+
+<!-- select选择框 -->
+<div id="selectionDialog" class="selection-dialog" style="display: none;">
+    <div class="selection-dialog-content">
+        <h3>选择操作</h3>
+        <button onclick="deleteEventsInRange()">删除范围内所有日程</button>
+        <button onclick="openCreateEventModal(window.selectedStart, window.selectedEnd)">新建日程</button>
+        <button onclick="addToAIPlanning()">将时间加入AI规划</button>
+        <button class="close-dialog" onclick="hideSelectionDialog()">关闭</button>
     </div>
 </div>
 
@@ -445,9 +478,13 @@
             },
 
             selectable: true,
-            select: function (info) {
-                openCreateEventModal(info.startStr, info.endStr);
+            select: function(info) {
+                showSelectionDialog(info.startStr, info.endStr);
             },
+
+            // select: function (info) {
+            //     openCreateEventModal(info.startStr, info.endStr);
+            // },
 
             aspectRatio: 1.8,
             headerToolbar: {
@@ -537,7 +574,7 @@
             let randomMoveInterval = setInterval(() => {
                 const events = calendar.getEvents();
                 events.forEach(event => {
-                    if (Math.random() > 0.5) { // 50% 的概率随机移动日程
+                    if (Math.random() > 0.2) { // 50% 的概率随机移动日程
                         const randomStart = new Date(event.start.getTime() + (Math.random() - 0.5) * 7200000); // 随机移动 ±2 小时
                         const randomEnd = new Date(event.end.getTime() + (Math.random() - 0.5) * 7200000); // 随机移动 ±2 小时
 
@@ -546,7 +583,7 @@
                         }
                     }
                 });
-            }, 5000); // 每秒随机移动一次
+            }, 2500); // 每秒随机移动一次
 
             fetch('ai_suggestions/')
                 .then(response => response.json())
@@ -613,6 +650,89 @@
             })
         });
     }
+
+
+    // 以下是select方式的函数
+
+    // 展示选择框
+    function showSelectionDialog(start, end) {
+        var dialog = document.getElementById('selectionDialog');
+        dialog.style.display = 'block';
+
+        // 保存选择的时间范围
+        const formatSelectedStart = start.replace(/\+\d{2}:\d{2}$/, '');
+        const formatSelectedEnd = end.replace(/\+\d{2}:\d{2}$/, '');
+        window.selectedStart = formatSelectedStart;
+        window.selectedEnd = formatSelectedEnd;
+
+    }
+
+    function hideSelectionDialog() {
+        var dialog = document.getElementById('selectionDialog');
+        dialog.style.display = 'none';
+    }
+
+    function deleteEventsInRange() {
+        // 发送到后端删除范围内所有日程
+        fetch('delete_events_in_range/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                start: window.selectedStart,
+                end: window.selectedEnd
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('范围内所有日程已删除');
+                    location.reload(); // 刷新页面
+                } else {
+                    alert('删除失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting events:', error);
+                alert('删除失败: ' + error.message);
+            })
+            .finally(() => {
+                hideSelectionDialog();
+            });
+    }
+
+    function addToAIPlanning() {
+        // 发送到后端将时间加入AI规划
+        fetch('add_to_ai_planning_time/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                start: window.selectedStart,
+                end: window.selectedEnd
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('时间已加入AI规划');
+                    location.reload(); // 刷新页面
+                } else {
+                    alert('加入AI规划失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error adding to AI planning:', error);
+                alert('加入AI规划失败: ' + error.message);
+            })
+            .finally(() => {
+                hideSelectionDialog();
+            });
+    }
+    // select结束
+
 
 
 
@@ -795,12 +915,6 @@
         // 在这里可以更新前端显示的临时日程数据
     }
 
-    // document.querySelector('.ai-dialogue-close').disabled = true;
-    // document.getElementById('mergeTempEvents').disabled = true;
-    // document.querySelector('.ai-dialogue-close').disabled = false;
-    // document.getElementById('mergeTempEvents').disabled = false;
-    // document.getElementById('aiEventGroupId').disabled = false;
-
     document.getElementById('mergeTempEvents').addEventListener('click', function() {
         // 合并 tempEvents 到主事件数据
         fetch('merge_temp_events/', {
@@ -902,6 +1016,8 @@
 
     // 打开创建栏
     function openCreateEventModal(start, end) {
+        hideSelectionDialog()
+
         // 将 ISO 格式的时间字符串转换为本地时间格式，并加上8小时
         function toLocalTime(time) {
             const date = new Date(time);
