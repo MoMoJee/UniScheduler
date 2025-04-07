@@ -10,7 +10,4 @@ urlpatterns = [
     path('get_temp_long_events/', views.get_temp_long_events, name='get_temp_long_events'),
     path('add_to_ai_planning_time/', views.add_to_ai_planning_time, name='add_to_ai_planning_time'),
     path('delete_events_in_range/', views.delete_events_in_range, name='delete_events_in_range'),
-
-
-
 ]

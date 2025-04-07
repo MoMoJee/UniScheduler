@@ -24,9 +24,9 @@ logger = logging.getLogger("logger")
 def ai_suggestions(request):
     if request.method == 'GET':
         # 获取用户的所有事件
-        user_data, created = UserData.objects.get_or_create(user=request.user, key="events")
-        events = json.loads(user_data.value)
-        all_events = json.loads(user_data.value)
+        user_events_data, created = UserData.objects.get_or_create(user=request.user, key="events")
+        events = json.loads(user_events_data.value)
+        all_events = json.loads(user_events_data.value)
         # 遍历列表中的每个字典，移除 "groupID" 字段，节省tokens
         for event in events:
             event.pop("groupID", None)  # 如果 "groupID" 不存在，不会报错
@@ -56,6 +56,11 @@ def ai_suggestions(request):
                 if time_range_start <= event_start and event_end <= time_range_end:
                     filtered_events.append(event)
 
+        if not filtered_events:
+            # 修复BUG 没有指定待时间段时返回错误
+            return JsonResponse({"events": [], "suggestions": "请先框选要安排的时间段，并确保其中有已安排的日程哦~"})
+
+
 
 
 
@@ -75,7 +80,7 @@ def ai_suggestions(request):
 
 
 
-        user_data, created = UserData.objects.get_or_create(user=request.user, key="setting", defaults={"value": json.dumps({"AI_setting_code": 4})})
+        user_setting_data, created = UserData.objects.get_or_create(user=request.user, key="setting", defaults={"value": json.dumps({"AI_setting_code": 4})})
 
 
         ai_setting = {
@@ -88,7 +93,7 @@ def ai_suggestions(request):
         }
 
         for ai_setting in ai_settings:
-            if ai_setting["code"] == json.loads(user_data.value)["AI_setting_code"]:
+            if ai_setting["code"] == json.loads(user_setting_data.value)["AI_setting_code"]:
                 break
 
         reply = ai_reply(dialogues, ai_setting)["response"]
@@ -129,6 +134,7 @@ def ai_suggestions(request):
                         "urgency": original_event["urgency"],
                         "groupID": original_event["groupID"]  # 存储 groupId
                     })
+                    all_events = [item for item in all_events if item["id"] != original_event["id"]]
                     matched = True
                     break
             if not matched:
@@ -139,7 +145,9 @@ def ai_suggestions(request):
                     "newEnd": original_event["end"],
                 })
 
-            # TODO 这里还差一个逻辑，把已经修改的日程从主events剔除
+
+            user_events_data.value = json.dumps(all_events)
+            user_events_data.save()
 
 
             user_data_planner.value = json.dumps(planner_data)
@@ -148,7 +156,7 @@ def ai_suggestions(request):
         return JsonResponse({"events": updated_events, "suggestions": final_suggestion})
     return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
 
-
+from datetime import timezone
 # AI生成日程的代码
 @csrf_exempt
 @login_required
@@ -173,18 +181,22 @@ def ai_create(request):
         ai_planning_time = planner_data['ai_planning_time']
 
         # 筛选在时间范围内的事件
+        # TODO 这里发现一个“can't compare offset-naive and offset-aware datetimes”的BUG，我不得不用加上UTC的方式纠正。奇怪的是上面一模一样的代码suggestion没报错，郁闷
         filtered_events = []
         if 'start' in ai_planning_time and 'end' in ai_planning_time:
-            time_range_start = datetime.fromisoformat(ai_planning_time['start'])
-            time_range_end = datetime.fromisoformat(ai_planning_time['end'])
+            time_range_start = datetime.fromisoformat(ai_planning_time['start']).replace(tzinfo=timezone.utc)
+            time_range_end = datetime.fromisoformat(ai_planning_time['end']).replace(tzinfo=timezone.utc)
 
             for event in events:
-                event_start = datetime.fromisoformat(event['start'])
-                event_end = datetime.fromisoformat(event['end'])
+                event_start = (datetime.fromisoformat(event['start'])).replace(tzinfo=timezone.utc)
+                event_end = datetime.fromisoformat(event['end']).replace(tzinfo=timezone.utc)
 
                 # 检查事件是否完全在时间范围内
                 if time_range_start <= event_start and event_end <= time_range_end:
                     filtered_events.append(event)
+        # else:
+        #     # TODO AI生成需要修复BUG 这里就返回一个提示吧，表示不会自动绕开已安排日程
+        #     return JsonResponse({"events": updated_events, "suggestions": final_suggestion})
 
         for event in filtered_events:
             event.pop("groupID", None)  # 如果 "groupID" 不存在，不会报错
@@ -243,6 +255,8 @@ def ai_create(request):
 
         reply = web_search_ai_reply(dialogues, ai_setting)
         # TODO 这里是联网搜索的版本，可用但有点烧钱，可以考虑本地搜索引擎。同时这里的各种逻辑还是有点问题，毕竟直接换的，也不支持别的模型。此外我会添加一个联网搜索按钮
+
+        logger.debug(reply)
 
 
         created_events, suggestion = parse_json_to_list_and_string(reply)
@@ -379,6 +393,8 @@ def add_to_ai_planning_time(request):
             start_time = data.get('start')
             end_time = data.get('end')
 
+            # TODO 当在月视图划定范围时，只有日期而没有时间。应该要加上
+
             if not start_time or not end_time:
                 return JsonResponse({'status': 'error', 'message': 'Missing start or end time'}, status=400)
 
@@ -456,7 +472,9 @@ def ai_reply(dialogues, ai_setting):
             messages=dialogues,
             temperature=ai_setting["temperature"],
             response_format={"type": "json_object"}, # <-- 使用 response_format 参数指定输出格式为 json_object
-            max_tokens=4000
+            max_tokens=16*1024
+            # TODO 这里，我改以什么方式，更好地规划输出长度呢（而且DS的好像不让输出这么多）
+            # TODO 需要加错误处理函数。
         )
         prompt_tokens = completion.usage.prompt_tokens
         completion_tokens = completion.usage.completion_tokens
@@ -497,8 +515,9 @@ def web_chat(messages, ai_setting):
         messages=messages,
         temperature=ai_setting["temperature"],
         response_format={"type": "json_object"}, # <-- 使用 response_format 参数指定输出格式为 json_object
-        max_tokens=4000,
+        max_tokens=16*1024,
         tools=[{"type": "builtin_function", "function": {"name": "$web_search"}}]
+        # TODO 这里到时候要和上面AI_reply集成，不然每次改特性都要改俩
     )
     usage = completion.usage
     choice = completion.choices[0]
