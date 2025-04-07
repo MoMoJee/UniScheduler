@@ -54,3 +54,26 @@ class UserData(models.Model):
 # 动态数据存储：存储用户生成的动态数据，这些数据可能因用户而异，且可能需要频繁更新。
 # 多对一关系：通过 ForeignKey 将 UserData 与 User 模型关联起来，允许每个用户有多个数据记录。
 # 灵活扩展：可以通过添加新的 key 来扩展数据结构，而无需修改数据库表结构。
+
+
+# TODO 协作数据类型
+class CollaborativeEventGroup(models.Model):
+    id = models.CharField(max_length=100, primary_key=True)
+    name = models.CharField(max_length=200)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+
+class CollaborativeEvent(models.Model):
+    group = models.ForeignKey(CollaborativeEventGroup, on_delete=models.CASCADE)
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    start = models.DateTimeField()
+    end = models.DateTimeField()
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.title

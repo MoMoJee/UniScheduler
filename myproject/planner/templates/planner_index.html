@@ -255,11 +255,13 @@
         /*    border-color: #666; !* 设置事件边框颜色 *!*/
         /*    color: #fff; !* 设置事件文本颜色 *!*/
         /*}*/
-
+    /*TODO 这里的CSS极其混乱*/
+    /*TODO 我想写一个夜间模式*/
     </style>
 
 </head>
 <body>
+<!--TODO 这里的所有超链接，都要做成好看的按钮。可以直接写，也可以用 FullCalendar 的API实现（比如“新建日程”按钮）-->
 <button id="updateEventsButton">AI规划</button>
 <a href="/home">主页</a>
 <br/>
@@ -571,6 +573,7 @@
             calendar.setOption('selectable', false);
 
             // 启动随机移动日程的定时器
+            // TODO 这里差一个逻辑，只能随机移动被选中要移动的日程，不能全都移动
             let randomMoveInterval = setInterval(() => {
                 const events = calendar.getEvents();
                 events.forEach(event => {
@@ -594,6 +597,7 @@
                             if (event) {
                                 moveEventWithAnimation(event, eventChange.newStart, eventChange.newEnd);
                             }
+                            // TODO 增加对后端返回的“未定义AI规划时间”错误的呈现
                         });
                     }
 
@@ -853,6 +857,7 @@
             },
             body: JSON.stringify({ input: userInput, group_id: groupId })
         })
+            // TODO 增加对后端返回的“未定义AI规划时间”错误的呈现
             .then(response => response.json())
             .then(data => {
                 tempEvents = data.events;
