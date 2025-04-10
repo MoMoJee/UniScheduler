@@ -139,7 +139,7 @@
             max-height: 200px;
         }
 
-        #mergeTempEvents {
+        #confirmMergeAndSave {
             margin-top: 20px;
             padding: 10px 20px;
             background: #007bff;
@@ -262,11 +262,12 @@
 </head>
 <body>
 <!--TODO 这里的所有超链接，都要做成好看的按钮。可以直接写，也可以用 FullCalendar 的API实现（比如“新建日程”按钮）-->
-<button id="updateEventsButton">AI规划</button>
+<button id="updateEventsButton">AI自动安排选中日程</button>
 <a href="/home">主页</a>
 <br/>
 <button id="createEventGroupButton">创建日程组</button>
-<button id="startDialogueButton">开始对话</button>
+<button id="startDialogueButton">开始AI对话</button>
+<button id="directMergeTempEvents">合并计划师中安排的日程到主日程数据</button>
 <div id="aiDialogue" class="ai-dialogue" style="display: none;">
     <div class="ai-dialogue-header">
         <span class="ai-dialogue-title">与AI对话</span>
@@ -282,7 +283,7 @@
             </select>
         </p>
         <button id="sendToAI">发送</button>
-        <button id="mergeTempEvents">确认并保存</button>
+        <button id="confirmMergeAndSave">确认并保存</button>
     </div>
 </div>
 <div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999;">
@@ -573,11 +574,21 @@
             calendar.setOption('selectable', false);
 
             // 启动随机移动日程的定时器
-            // TODO 这里差一个逻辑，只能随机移动被选中要移动的日程，不能全都移动
+            // 限制随机移动的日程数量，最多移动10个
             let randomMoveInterval = setInterval(() => {
                 const events = calendar.getEvents();
-                events.forEach(event => {
-                    if (Math.random() > 0.2) { // 50% 的概率随机移动日程
+
+                // 如果日程数量超过10个，随机选择10个进行移动
+                const maxEventsToMove = 10;
+                let eventsToMove = events;
+
+                if (events.length > maxEventsToMove) {
+                    // 随机打乱日程顺序
+                    eventsToMove = [...events].sort(() => Math.random() - 0.5).slice(0, maxEventsToMove);
+                }
+
+                eventsToMove.forEach(event => {
+                    if (Math.random() > 0.2) { // 80% 的概率随机移动日程
                         const randomStart = new Date(event.start.getTime() + (Math.random() - 0.5) * 7200000); // 随机移动 ±2 小时
                         const randomEnd = new Date(event.end.getTime() + (Math.random() - 0.5) * 7200000); // 随机移动 ±2 小时
 
@@ -586,7 +597,7 @@
                         }
                     }
                 });
-            }, 2500); // 每秒随机移动一次
+            }, 2500); // 每2.5秒随机移动一次
 
             fetch('ai_suggestions/')
                 .then(response => response.json())
@@ -597,7 +608,6 @@
                             if (event) {
                                 moveEventWithAnimation(event, eventChange.newStart, eventChange.newEnd);
                             }
-                            // TODO 增加对后端返回的“未定义AI规划时间”错误的呈现
                         });
                     }
 
@@ -843,7 +853,7 @@
         document.getElementById('sendToAI').disabled = true;
         document.getElementById('aiEventGroupId').disabled = true;
         document.querySelector('.ai-dialogue-close').disabled = true;
-        document.getElementById('mergeTempEvents').disabled = true;
+        document.getElementById('confirmMergeAndSave').disabled = true;
 
         // 更新对话历史记录
         dialogue.push({ user: userInput });
@@ -857,7 +867,6 @@
             },
             body: JSON.stringify({ input: userInput, group_id: groupId })
         })
-            // TODO 增加对后端返回的“未定义AI规划时间”错误的呈现
             .then(response => response.json())
             .then(data => {
                 tempEvents = data.events;
@@ -872,8 +881,8 @@
                 document.getElementById('userInput').disabled = false;
                 document.getElementById('sendToAI').disabled = false;
                 document.querySelector('.ai-dialogue-close').disabled = false;
-                document.getElementById('mergeTempEvents').disabled = false;
                 document.getElementById('aiEventGroupId').disabled = false;
+                document.getElementById('confirmMergeAndSave').disabled = false;
                 // 清空输入框
                 document.getElementById('userInput').value = '';
                 location.reload()
@@ -888,8 +897,8 @@
                 document.getElementById('userInput').disabled = false;
                 document.getElementById('sendToAI').disabled = false;
                 document.querySelector('.ai-dialogue-close').disabled = false;
-                document.getElementById('mergeTempEvents').disabled = false;
                 document.getElementById('aiEventGroupId').disabled = false;
+                document.getElementById('confirmMergeAndSave').disabled = false;
                 location.reload()
             });
 
@@ -920,7 +929,7 @@
         // 在这里可以更新前端显示的临时日程数据
     }
 
-    document.getElementById('mergeTempEvents').addEventListener('click', function() {
+    function mergeTempEvents(){
         // 合并 tempEvents 到主事件数据
         fetch('merge_temp_events/', {
             method: 'POST',
@@ -947,6 +956,22 @@
                 console.error('Error merging temp events:', error);
                 alert('合并失败: ' + error.message);
             });
+    };
+
+    document.getElementById('confirmMergeAndSave').addEventListener('click', function() {
+        const confirmResult = confirm('此操作会将AI生成的日程置入你的日程表，同时清空聊天记录，确定吗？');
+
+        if (confirmResult) {
+            // 用户点击了确定，执行 mergeTempEvents
+            mergeTempEvents();
+        } else {
+            // 用户点击了取消，不做任何操作
+            console.log('用户取消了操作');
+        }
+    });
+
+    document.getElementById('directMergeTempEvents').addEventListener('click', function() {
+        mergeTempEvents();
     });
 
     // AI生成日程代码结束

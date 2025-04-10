@@ -13,6 +13,16 @@ import uuid
 # Create your views here.
 
 def planner_index(request):
+    # TODO 很不规范地执行一下数据初始化
+    user_planner_data, created = UserData.objects.get_or_create(
+        user=request.user,
+        key="planner",
+        defaults={"value": json.dumps({
+            "dialogue": [],
+            "temp_events": [],
+            "ai_planning_time": {}
+        })}
+    )
     return render(request, 'planner_index.html')
 
 import logging
@@ -172,6 +182,11 @@ def ai_create(request):
         user_planner_data, created = UserData.objects.get_or_create(
             user=request.user,
             key="planner",
+            defaults={"value": json.dumps({
+                "dialogue": [],
+                "temp_events": [],
+                "ai_planning_time": {}
+            })}
         )
         # 这里其实重复获取了，后面又导入了一次，但我懒得改
         user_events_data, created = UserData.objects.get_or_create(user=request.user, key="events")
@@ -181,8 +196,10 @@ def ai_create(request):
         ai_planning_time = planner_data['ai_planning_time']
 
         # 筛选在时间范围内的事件
-        # TODO 这里发现一个“can't compare offset-naive and offset-aware datetimes”的BUG，我不得不用加上UTC的方式纠正。奇怪的是上面一模一样的代码suggestion没报错，郁闷
         filtered_events = []
+
+        None_ai_planning_time_remind = ""  # 用来提示AI规划使用时没有指定时间
+
         if 'start' in ai_planning_time and 'end' in ai_planning_time:
             time_range_start = datetime.fromisoformat(ai_planning_time['start']).replace(tzinfo=timezone.utc)
             time_range_end = datetime.fromisoformat(ai_planning_time['end']).replace(tzinfo=timezone.utc)
@@ -194,9 +211,8 @@ def ai_create(request):
                 # 检查事件是否完全在时间范围内
                 if time_range_start <= event_start and event_end <= time_range_end:
                     filtered_events.append(event)
-        # else:
-        #     # TODO AI生成需要修复BUG 这里就返回一个提示吧，表示不会自动绕开已安排日程
-        #     return JsonResponse({"events": updated_events, "suggestions": final_suggestion})
+        else:
+            None_ai_planning_time_remind = "您没有通过拖动选定的方式指定要提交给AI作为参考的时间段，这会导致AI无法正确绕开您的已有日程"
 
         for event in filtered_events:
             event.pop("groupID", None)  # 如果 "groupID" 不存在，不会报错
@@ -307,7 +323,7 @@ def ai_create(request):
         user_data.save()
 
 
-        return JsonResponse({"suggestions": final_suggestion, "events": created_events})
+        return JsonResponse({"suggestions": [f'注意，{None_ai_planning_time_remind}, {final_suggestion}' if None_ai_planning_time_remind else final_suggestion], "events": created_events})
     return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
 
 # AI生成的对话框
@@ -393,10 +409,29 @@ def add_to_ai_planning_time(request):
             start_time = data.get('start')
             end_time = data.get('end')
 
-            # TODO 当在月视图划定范围时，只有日期而没有时间。应该要加上
-
             if not start_time or not end_time:
                 return JsonResponse({'status': 'error', 'message': 'Missing start or end time'}, status=400)
+
+
+            # 处理 start 时间
+            try:
+                start_time = datetime.strptime(start_time, "%Y-%m-%dT%H:%M:%S")
+            except (ValueError, TypeError):
+                try:
+                    date_obj = datetime.strptime(start_time, "%Y-%m-%d")
+                    start_time = date_obj.replace(hour=0, minute=0, second=0)
+                except (ValueError, TypeError):
+                    start_time = None
+
+            # 处理 end 时间
+            try:
+                end_time = datetime.strptime(end_time, "%Y-%m-%dT%H:%M:%S")
+            except (ValueError, TypeError):
+                try:
+                    date_obj = datetime.strptime(end_time, "%Y-%m-%d")
+                    end_time = date_obj.replace(hour=23, minute=59, second=59)
+                except (ValueError, TypeError):
+                    end_time = None
 
             user_data, created = UserData.objects.get_or_create(
                 user=request.user,
@@ -405,8 +440,8 @@ def add_to_ai_planning_time(request):
 
             planner_data = json.loads(user_data.value)
             planner_data['ai_planning_time'] = {
-                'start': start_time,
-                'end': end_time
+                'start': str(start_time),
+                'end': str(end_time)
             }
 
             user_data.value = json.dumps(planner_data)
@@ -458,7 +493,7 @@ def delete_events_in_range(request):
 
 
 
-# AI回复的代码，AI生成和AI建议都用这个
+# AI回复的代码，AI_suggestion用的
 def ai_reply(dialogues, ai_setting):
     try:
         client = OpenAI(
