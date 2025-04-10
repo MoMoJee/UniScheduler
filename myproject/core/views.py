@@ -197,6 +197,7 @@ def user_settings(request):
         user_settings = user_data.get_value()
         logger.debug(user_settings[-2])
         # 这里，我们选择返回数据库中（经过处理后的）最新的日程
+        # TODO 对于新注册的用户，这里会因为没有收集到足够的setting数据而报错索引溢出。但是可以不管
 
         return JsonResponse({'status': 'success', 'message': user_settings[-2]}, status=200)
 
@@ -310,7 +311,7 @@ def update_events(request):
                 return JsonResponse({'status': 'success'})
 
                 # 查找temp需要更新的事件，这里做的逻辑是在临时事件未保存时只是在临时数据那里修改
-                # TODO 后面可能加入更高级的算法，让用户改过的数据不被AI动
+                # TODO 后面可能加入更高级的算法，让用户改过的数据不被AI动（PS：我懒得改了）
         for event in temp_events:
             if event['id'] == event_id:
                 event['start'] = new_start
