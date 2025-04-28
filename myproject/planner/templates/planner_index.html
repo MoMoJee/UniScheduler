@@ -86,6 +86,159 @@
             color: black;
             cursor: pointer;
         }
+        .ai-dialogue {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            z-index: 1000;
+            transition: opacity 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            width: 80%;
+            max-width: 600px;
+        }
+
+        .ai-dialogue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .ai-dialogue-close {
+            cursor: pointer;
+            font-size: 1.5em;
+        }
+
+        .ai-dialogue-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        #userInput {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        #dialogueHistory {
+            background: #f8f8f8;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 10px 0;
+            overflow-y: auto;
+            max-height: 200px;
+        }
+
+        #confirmMergeAndSave {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .ai-dialogue {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            z-index: 1000;
+            transition: opacity 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            width: 80%;
+            max-width: 600px;
+        }
+
+        .ai-dialogue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .ai-dialogue-close {
+            cursor: pointer;
+            font-size: 1.5em;
+        }
+
+        .ai-dialogue-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        #userInput {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        #dialogueHistory {
+            background: #f8f8f8;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 10px 0;
+            overflow-y: auto;
+            max-height: 200px;
+        }
+
+        #mergeTempEvents {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button[disabled] {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .selection-dialog {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+
+        .selection-dialog-content {
+            text-align: center;
+        }
+
+        .selection-dialog-content button {
+            display: block;
+            margin: 10px auto;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+
+
 
         /*!* 深色主题的自定义样式 *!*/
         /*.fc {*/
@@ -102,21 +255,48 @@
         /*    border-color: #666; !* 设置事件边框颜色 *!*/
         /*    color: #fff; !* 设置事件文本颜色 *!*/
         /*}*/
-
+    /*TODO 这里的CSS极其混乱*/
+    /*TODO 我想写一个夜间模式*/
     </style>
 
 </head>
 <body>
-<button id="updateEventsButton">AI规划</button>
+<!--TODO 这里的所有超链接，都要做成好看的按钮。可以直接写，也可以用 FullCalendar 的API实现（比如“新建日程”按钮）-->
+<button id="updateEventsButton">AI自动安排选中日程</button>
 <a href="/home">主页</a>
 <br/>
 <button id="createEventGroupButton">创建日程组</button>
+<button id="startDialogueButton">开始AI对话</button>
+<button id="directMergeTempEvents">合并计划师中安排的日程到主日程数据</button>
+<div id="aiDialogue" class="ai-dialogue" style="display: none;">
+    <div class="ai-dialogue-header">
+        <span class="ai-dialogue-title">与AI对话</span>
+        <button class="ai-dialogue-close">&times;</button>
+    </div>
+    <div class="ai-dialogue-content">
+        <div id="dialogueHistory"></div>
+        <textarea id="userInput" placeholder="请输入你的要求..."></textarea>
+        <p><strong>选择要置入的日程组：</strong>
+            <select id="aiEventGroupId">
+                <option value="">无</option>
+                <!-- 动态生成日程组选项 -->
+            </select>
+        </p>
+        <button id="sendToAI">发送</button>
+        <button id="confirmMergeAndSave">确认并保存</button>
+    </div>
+</div>
+<div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white;">
+        <h2>正在加载...</h2>
+    </div>
+</div>
 <br/>
 <h1>计划师</h1>
 <div id="calendar"></div>
-<div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; text-align: center; padding-top: 50%;">
-    <h1>Loading...</h1>
-</div>
+
+
+
 <!-- 点击后弹出的对话框 -->
 <div id="myModal" class="modal">
     <div class="modal-content">
@@ -189,12 +369,28 @@
     </div>
 </div>
 
+
+<!-- select选择框 -->
+<div id="selectionDialog" class="selection-dialog" style="display: none;">
+    <div class="selection-dialog-content">
+        <h3>选择操作</h3>
+        <button onclick="deleteEventsInRange()">删除范围内所有日程</button>
+        <button onclick="openCreateEventModal(window.selectedStart, window.selectedEnd)">新建日程</button>
+        <button onclick="addToAIPlanning()">将时间加入AI规划</button>
+        <button class="close-dialog" onclick="hideSelectionDialog()">关闭</button>
+    </div>
+</div>
+
+
+
 <!--<script src='https://cdn.jsdelivr.net/npm/fullcalendar/index.global.min.js'></script>-->
 <!--上面是让浏览器自行下载fullcalendar的意思-->
 <script src='../static/fullcalendar_index.global.js'></script>
 
 
 <script>
+
+
     document.addEventListener('DOMContentLoaded', function() {
         var calendarEl = document.getElementById('calendar');
 
@@ -210,6 +406,12 @@
             },
             eventResize: function (info) {
                 updateEvent(info.event.id, info.event.start.toISOString(), info.event.end.toISOString(), info.event.title, info.event.extendedProps.description, info.event.extendedProps.importance, info.event.extendedProps.urgency, info.event.extendedProps.groupID);
+            },
+            datesSet: function(viewInfo) {
+                // 调用后端接口保存当前视图类型和日期范围
+
+                //！！！！！这里有个BUG，你点击刷新，这里会自动跳到初始视图，把页面数据发送。因此后台做了一个处理，过滤这种
+                saveCurrentView(viewInfo.view.type, viewInfo.start, viewInfo.end);
             },
 
 
@@ -279,9 +481,13 @@
             },
 
             selectable: true,
-            select: function (info) {
-                openCreateEventModal(info.startStr, info.endStr);
+            select: function(info) {
+                showSelectionDialog(info.startStr, info.endStr);
             },
+
+            // select: function (info) {
+            //     openCreateEventModal(info.startStr, info.endStr);
+            // },
 
             aspectRatio: 1.8,
             headerToolbar: {
@@ -308,7 +514,7 @@
             },
 
             events: function (info, successCallback, failureCallback) {
-                fetch('/get_calendar/events/')
+                fetch('get_temp_long_events/')
                     .then(response => response.json())
                     .then(data => {
                         if (data && data.events && data.events_groups) {
@@ -319,13 +525,6 @@
                             const eventsWithColor = data.events.map(event => {
                                 const groupID = String(event.groupID); // 确保 groupID 是字符串
                                 const group = window.events_groups.find(group => String(group.id) === groupID); // 确保 group.id 也是字符串
-
-                                if (group) {
-                                    console.log("WIN");
-                                } else {
-                                    console.log("LOSE");
-                                    console.log(data.events, window.events_groups);
-                                }
 
                                 const groupColor = group ? group.color : '#999'; // 默认颜色
                                 return {
@@ -358,6 +557,10 @@
 
         });
 
+        // 页面加载时恢复视图
+        initCalendar(calendar);
+        calendar.render();
+
 
         calendar.render();
 
@@ -371,10 +574,21 @@
             calendar.setOption('selectable', false);
 
             // 启动随机移动日程的定时器
+            // 限制随机移动的日程数量，最多移动10个
             let randomMoveInterval = setInterval(() => {
                 const events = calendar.getEvents();
-                events.forEach(event => {
-                    if (Math.random() > 0.5) { // 50% 的概率随机移动日程
+
+                // 如果日程数量超过10个，随机选择10个进行移动
+                const maxEventsToMove = 10;
+                let eventsToMove = events;
+
+                if (events.length > maxEventsToMove) {
+                    // 随机打乱日程顺序
+                    eventsToMove = [...events].sort(() => Math.random() - 0.5).slice(0, maxEventsToMove);
+                }
+
+                eventsToMove.forEach(event => {
+                    if (Math.random() > 0.2) { // 80% 的概率随机移动日程
                         const randomStart = new Date(event.start.getTime() + (Math.random() - 0.5) * 7200000); // 随机移动 ±2 小时
                         const randomEnd = new Date(event.end.getTime() + (Math.random() - 0.5) * 7200000); // 随机移动 ±2 小时
 
@@ -383,7 +597,7 @@
                         }
                     }
                 });
-            }, 5000); // 每秒随机移动一次
+            }, 2500); // 每2.5秒随机移动一次
 
             fetch('ai_suggestions/')
                 .then(response => response.json())
@@ -416,6 +630,123 @@
                 });
         });
     });
+
+
+
+    function initCalendar(calendar) {
+        fetch("/get_calendar/user_settings")
+            .then(response => response.json())
+            .then(data => {
+                const nowView = data.message.now_view;
+
+                if (nowView.viewType) {
+                    calendar.changeView(nowView.viewType, new Date(nowView.start));
+                }
+
+                if (nowView.start) {
+                    calendar.gotoDate(new Date(nowView.start));
+                }
+            });
+    }
+
+
+    // 调用后端接口保存当前视图类型和日期范围
+    function saveCurrentView(viewType, start, end) {
+        fetch('/get_calendar/change_view/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                viewType: viewType,
+                start: start.toISOString(),
+                end: end.toISOString()
+            })
+        });
+    }
+
+
+    // 以下是select方式的函数
+
+    // 展示选择框
+    function showSelectionDialog(start, end) {
+        var dialog = document.getElementById('selectionDialog');
+        dialog.style.display = 'block';
+
+        // 保存选择的时间范围
+        const formatSelectedStart = start.replace(/\+\d{2}:\d{2}$/, '');
+        const formatSelectedEnd = end.replace(/\+\d{2}:\d{2}$/, '');
+        window.selectedStart = formatSelectedStart;
+        window.selectedEnd = formatSelectedEnd;
+
+    }
+
+    function hideSelectionDialog() {
+        var dialog = document.getElementById('selectionDialog');
+        dialog.style.display = 'none';
+    }
+
+    function deleteEventsInRange() {
+        // 发送到后端删除范围内所有日程
+        fetch('delete_events_in_range/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                start: window.selectedStart,
+                end: window.selectedEnd
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('范围内所有日程已删除');
+                    location.reload(); // 刷新页面
+                } else {
+                    alert('删除失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting events:', error);
+                alert('删除失败: ' + error.message);
+            })
+            .finally(() => {
+                hideSelectionDialog();
+            });
+    }
+
+    function addToAIPlanning() {
+        // 发送到后端将时间加入AI规划
+        fetch('add_to_ai_planning_time/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                start: window.selectedStart,
+                end: window.selectedEnd
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('时间已加入AI规划');
+                    location.reload(); // 刷新页面
+                } else {
+                    alert('加入AI规划失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error adding to AI planning:', error);
+                alert('加入AI规划失败: ' + error.message);
+            })
+            .finally(() => {
+                hideSelectionDialog();
+            });
+    }
+    // select结束
+
 
 
 
@@ -461,6 +792,190 @@
             modal.remove();
         }
     }
+
+    // 以下是AI生成日程的代码
+
+
+    let isDialogueOpen = false;
+    let tempEvents = [];
+    let dialogue = [];
+
+    document.getElementById('startDialogueButton').addEventListener('click', function() {
+        const aiDialogue = document.getElementById('aiDialogue');
+        aiDialogue.style.display = 'flex';
+        isDialogueOpen = true;
+
+        // 动态生成日程组选项
+        const eventGroupIdSelect = document.getElementById('aiEventGroupId');
+        eventGroupIdSelect.innerHTML = '<option value="">无</option>'; // 默认选项
+        // 假设 window.events_groups 已经从后端获取并存储
+        if (window.events_groups) {
+            window.events_groups.forEach(group => {
+                const option = document.createElement('option');
+                option.value = group.id;
+                option.text = group.name;
+                eventGroupIdSelect.appendChild(option);
+            });
+        }
+
+        // 获取之前的聊天记录
+        fetch('get_previous_dialogue/')
+            .then(response => response.json())
+            .then(data => {
+                dialogue = data.dialogue;
+                displayDialogue();
+                tempEvents = data.tempEvents;
+                updateTempEvents();
+                console.log(data)
+            })
+            .catch(error => console.error('Error fetching previous dialogue:', error));
+    });
+
+    document.querySelector('.ai-dialogue-close').addEventListener('click', function() {
+        const aiDialogue = document.getElementById('aiDialogue');
+        aiDialogue.style.display = 'none';
+        isDialogueOpen = false;
+    });
+
+
+
+
+    document.getElementById('sendToAI').addEventListener('click', function() {
+        const userInput = document.getElementById('userInput').value;
+        const groupId = document.getElementById('aiEventGroupId').value;
+        if (!userInput) return;
+
+        // 显示加载动画
+        document.getElementById('loadingOverlay').style.display = 'block';
+
+        // 禁用用户交互
+        document.getElementById('userInput').disabled = true;
+        document.getElementById('sendToAI').disabled = true;
+        document.getElementById('aiEventGroupId').disabled = true;
+        document.querySelector('.ai-dialogue-close').disabled = true;
+        document.getElementById('confirmMergeAndSave').disabled = true;
+
+        // 更新对话历史记录
+        dialogue.push({ user: userInput });
+        displayDialogue();
+
+        // 发送到后端
+        fetch('ai_create/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ input: userInput, group_id: groupId })
+        })
+            .then(response => response.json())
+            .then(data => {
+                tempEvents = data.events;
+                dialogue.push({ ai: data.suggestions });
+                displayDialogue();
+                updateTempEvents();
+
+                // 隐藏加载动画
+                document.getElementById('loadingOverlay').style.display = 'none';
+
+                // 恢复用户交互
+                document.getElementById('userInput').disabled = false;
+                document.getElementById('sendToAI').disabled = false;
+                document.querySelector('.ai-dialogue-close').disabled = false;
+                document.getElementById('aiEventGroupId').disabled = false;
+                document.getElementById('confirmMergeAndSave').disabled = false;
+                // 清空输入框
+                document.getElementById('userInput').value = '';
+                location.reload()
+            })
+            .catch(error => {
+                console.error('Error sending request:', error);
+
+                // 隐藏加载动画
+                document.getElementById('loadingOverlay').style.display = 'none';
+
+                // 恢复用户交互
+                document.getElementById('userInput').disabled = false;
+                document.getElementById('sendToAI').disabled = false;
+                document.querySelector('.ai-dialogue-close').disabled = false;
+                document.getElementById('aiEventGroupId').disabled = false;
+                document.getElementById('confirmMergeAndSave').disabled = false;
+                location.reload()
+            });
+
+    });
+
+    function displayDialogue() {
+        const dialogueHistory = document.getElementById('dialogueHistory');
+        dialogueHistory.innerHTML = '';
+        dialogue.forEach(message => {
+            if (message.user) {
+                const userMessage = document.createElement('div');
+                userMessage.textContent = '我: ' + message.user;
+                userMessage.style.textAlign = 'right';
+                userMessage.style.marginBottom = '10px';
+                dialogueHistory.appendChild(userMessage);
+            } else if (message.ai) {
+                const aiMessage = document.createElement('div');
+                aiMessage.textContent = 'AI: ' + message.ai;
+                aiMessage.style.textAlign = 'left';
+                aiMessage.style.marginBottom = '10px';
+                aiMessage.style.color = '#007bff';
+                dialogueHistory.appendChild(aiMessage);
+            }
+        });
+    }
+
+    function updateTempEvents() {
+        // 在这里可以更新前端显示的临时日程数据
+    }
+
+    function mergeTempEvents(){
+        // 合并 tempEvents 到主事件数据
+        fetch('merge_temp_events/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ tempEvents: tempEvents, dialogue: dialogue })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // 清空 tempEvents 和 dialogue
+                    tempEvents = [];
+                    dialogue = [];
+                    displayDialogue();
+                    updateTempEvents();
+
+                    alert('临时日程已合并到主日程中！');
+                } else {
+                    alert('合并失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error merging temp events:', error);
+                alert('合并失败: ' + error.message);
+            });
+    };
+
+    document.getElementById('confirmMergeAndSave').addEventListener('click', function() {
+        const confirmResult = confirm('此操作会将AI生成的日程置入你的日程表，同时清空聊天记录，确定吗？');
+
+        if (confirmResult) {
+            // 用户点击了确定，执行 mergeTempEvents
+            mergeTempEvents();
+        } else {
+            // 用户点击了取消，不做任何操作
+            console.log('用户取消了操作');
+        }
+    });
+
+    document.getElementById('directMergeTempEvents').addEventListener('click', function() {
+        mergeTempEvents();
+    });
+
+    // AI生成日程代码结束
+
 
 
     function updateEvent(eventId, newStart, newEnd, title, description, importance, urgency, groupID) {
@@ -531,6 +1046,8 @@
 
     // 打开创建栏
     function openCreateEventModal(start, end) {
+        hideSelectionDialog()
+
         // 将 ISO 格式的时间字符串转换为本地时间格式，并加上8小时
         function toLocalTime(time) {
             const date = new Date(time);

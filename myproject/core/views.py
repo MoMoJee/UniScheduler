@@ -20,6 +20,7 @@ from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 import json
+import requests
 
 import logging
 logger = logging.getLogger("logger")
@@ -34,7 +35,7 @@ def about(request):
     # 获取 README.md 文件的路径
     # base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     # readme_path = os.path.join(base_dir, '/core/static/about.md')
-    readme_path = 'D:\\PROJECTS\\UniScheduler\\myproject\\core\\static\\about.md'
+    readme_path = 'core/static/about.md'
 
 
 
@@ -114,6 +115,97 @@ def home(request):
 
 
 @login_required
+@csrf_exempt
+def change_view(request):
+    if request.method == 'POST':
+        user_data, created = UserData.objects.get_or_create(user=request.user, key="user_settings", defaults={"value": json.dumps([])})
+
+        user_settings = user_data.get_value()
+
+        now_view = {"now_view": json.loads(request.body)}
+        now_view = add_8_hours_to_time_data(now_view)
+        # TODO 这里有个BUG，月视图下刷新，总是会向早一个月，不知怎么解决。当然可以在这里打补丁处理月视图，但感觉还是应该摸清楚具体
+
+        user_settings.append(now_view)
+
+        while len(user_settings) >= 10:
+            del user_settings[0]
+
+        logger.debug(user_settings)
+        user_data.set_value(user_settings)
+        user_data.save()
+
+        return JsonResponse({'status': 'success', 'message': 'Success request'}, status=200)
+
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
+
+# 用来把ISO转化成北京时间，蠢蛋AI怎么写了这么多行
+def add_8_hours_to_time_data(data):
+    """
+    输入一个包含时间数据的字典，将其中的 start 和 end 时间加 8 小时，返回修改后的字典。
+
+    参数:
+    data (dict): 输入的字典，格式如：{
+        'now_view': {
+            'viewType': 'dayGridMonth',
+            'start': '2025-02-22T16:00:00.000Z',
+            'end': '2025-04-05T16:00:00.000Z'
+        }
+    }
+
+    返回:
+    dict: 修改后的时间数据字典
+    """
+    # 定义一个内部函数，用于处理单个时间字符串
+    def process_time(time_str):
+        # 去掉时间字符串中的 'Z'，并解析为 datetime 对象
+        time_str = time_str.replace('Z', '')
+        time_obj = datetime.datetime.fromisoformat(time_str)
+
+        # 加 8 小时
+        new_time_obj = time_obj + timedelta(hours=8)
+
+        # 转换回 ISO 8601 格式的字符串
+        return new_time_obj.isoformat() + 'Z'
+
+    print(data)
+
+    # 检查输入字典是否包含必要的字段
+    if 'now_view' in data and 'start' in data['now_view'] and 'end' in data['now_view']:
+        # 获取原始时间数据
+        start_time = data['now_view']['start']
+        end_time = data['now_view']['end']
+
+        # 更新时间数据
+        data['now_view']['start'] = process_time(start_time)
+        data['now_view']['end'] = process_time(end_time)
+
+    else:
+        raise ValueError("输入的字典格式不正确，缺少必要的字段")
+
+    return data
+
+
+
+# 发送用户设置
+# TODO 把AI设置集成进这个数据
+@login_required
+@csrf_exempt
+def user_settings(request):
+    if request.method == 'GET':
+        user_data, created = UserData.objects.get_or_create(user=request.user, key="user_settings", defaults={"value": json.dumps([])})
+        user_settings = user_data.get_value()
+        logger.debug(user_settings[-2])
+        # 这里，我们选择返回数据库中（经过处理后的）最新的日程
+        # TODO 对于新注册的用户，这里会因为没有收集到足够的setting数据而报错索引溢出。但是可以不管
+
+        return JsonResponse({'status': 'success', 'message': user_settings[-2]}, status=200)
+
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
+
+
+
+@login_required
 def get_events(request):
     if request.method == 'GET':
         # 自动新建一个日程
@@ -139,6 +231,7 @@ def get_events(request):
                 "description": "花一小时时间，学习如何使用我们的计划工具！",
                 "importance": "important",
                 "urgency": "urgent",
+                "groupID": "1"
             }
         ])})
 
@@ -184,6 +277,7 @@ def update_events(request):
 
 
         # 获取当前用户的 UserData 对象
+
         user_data, created = UserData.objects.get_or_create(
             user=request.user,
             key="events",
@@ -193,7 +287,11 @@ def update_events(request):
         # 获取存储的 events 数据
         events = json.loads(user_data.value)
         events = convert_time_format(events)
-        logger.debug(f'获取到用户的日程表：{events}')
+
+        user_temp_events_data, created = UserData.objects.get_or_create(user=request.user, key="planner")
+        planner_data = user_temp_events_data.get_value()
+
+        temp_events = planner_data["temp_events"]
 
         # 查找需要更新的事件
         for event in events:
@@ -206,14 +304,32 @@ def update_events(request):
                 event['urgency'] = urgency
                 event['groupID'] = group_id
                 logger.debug(f'日程更新，详情：{event}')
-                break
+                # 将更新后的数据保存回数据库
+                user_data.value = json.dumps(events)
+                user_data.save()
+                # 返回响应
+                return JsonResponse({'status': 'success'})
 
-        # 将更新后的数据保存回数据库
-        user_data.value = json.dumps(events)
-        user_data.save()
+                # 查找temp需要更新的事件，这里做的逻辑是在临时事件未保存时只是在临时数据那里修改
+                # TODO 后面可能加入更高级的算法，让用户改过的数据不被AI动（PS：我懒得改了）
+        for event in temp_events:
+            if event['id'] == event_id:
+                event['start'] = new_start
+                event['end'] = new_end
+                event['title'] = title
+                event['description'] = description
+                event['importance'] = importance
+                event['urgency'] = urgency
+                event['groupID'] = group_id
+                logger.debug(f'日程更新，详情：{event}')
+                # 将更新后的数据保存回数据库
+                planner_data["temp_events"] = temp_events
+                user_temp_events_data.value = json.dumps(planner_data)
+                user_temp_events_data.save()
+                # 返回响应
+                return JsonResponse({'status': 'success'})
 
-        # 返回响应
-        return JsonResponse({'status': 'success'})
+
     else:
         return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
 
@@ -295,8 +411,20 @@ def delete_event(request):
         )
         events = json.loads(user_data.value)
 
+        user_temp_events_data, created = UserData.objects.get_or_create(user=request.user, key="planner")
+        planner_data = user_temp_events_data.get_value()
+        temp_events = planner_data["temp_events"]
+
+
+
         # 删除指定的事件
         events = [event for event in events if event['id'] != event_id]
+        temp_events = [event for event in temp_events if event['id'] != event_id]
+        # 将更新后的数据保存回数据库
+        # TODO 同上，这里可能也要做类似的逻辑让AI不改
+        planner_data["temp_events"] = temp_events
+        user_temp_events_data.value = json.dumps(planner_data)
+        user_temp_events_data.save()
 
         user_data.value = json.dumps(events)
         user_data.save()
@@ -331,6 +459,253 @@ def create_events_group(request):
     return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
 
 
+
+@login_required
+@csrf_exempt
+def update_event_group(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        group_id = data.get('groupID')
+        title = data.get('title')
+        description = data.get('description')
+        color = data.get('color')
+        logger.debug(group_id)
+
+        user_data, created = UserData.objects.get_or_create(user=request.user, key="events_groups")
+        events_groups = json.loads(user_data.value)
+
+        for group in events_groups:
+            if group['id'] == group_id:
+                group['name'] = title
+                group['description'] = description
+                group['color'] = color
+                break
+
+        user_data.value = json.dumps(events_groups)
+        user_data.save()
+
+        return JsonResponse({'status': 'success'})
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
+
+
+
+@login_required
+@csrf_exempt
+def delete_event_groups(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        group_ids = data.get('groupIds', [])
+        delete_events = data.get('deleteEvents', False)
+
+        user_data, created = UserData.objects.get_or_create(user=request.user, key="events_groups")
+        events_groups = json.loads(user_data.value)
+
+        user_data_events, created = UserData.objects.get_or_create(user=request.user, key="events")
+        events = json.loads(user_data_events.value)
+
+        # 删除日程组
+        events_groups = [group for group in events_groups if group['id'] not in group_ids]
+
+        # 如果需要删除日程组下的所有日程
+        if delete_events:
+            events = [event for event in events if event['groupID'] not in group_ids]
+
+        # 更新数据库
+        user_data.value = json.dumps(events_groups)
+        user_data.save()
+
+        user_data_events.value = json.dumps(events)
+        user_data_events.save()
+
+        return JsonResponse({'status': 'success'})
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
+
+
+import json
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from .models import UserData
+
+@login_required
+@csrf_exempt
+def import_events(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        cookie = data.get('cookie')
+        group_id = data.get('groupId')
+
+        if not cookie or not group_id:
+            return JsonResponse({'status': 'error', 'message': 'Missing cookie or group ID'}, status=400)
+
+        # 从指定网站获取日程数据（示例逻辑）
+        try:
+            # 假设从某个网站获取日程数据
+            imported_events = json.loads(get_response_data(cookie))  # 自定义函数，从网站获取数据
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+        # 获取用户的所有日程组
+        user_data_groups, created = UserData.objects.get_or_create(user=request.user, key="events_groups")
+        events_groups = json.loads(user_data_groups.value)
+
+        # 获取用户的所有事件
+        user_data_events, created = UserData.objects.get_or_create(user=request.user, key="events")
+        events = json.loads(user_data_events.value)
+
+        # 将新获取的日程数据导入到指定的日程组
+        for event in imported_events:
+            event['groupID'] = group_id
+
+        events += imported_events
+
+        # 更新数据库
+        user_data_events.value = json.dumps(events)
+        user_data_events.save()
+
+        return JsonResponse({'status': 'success'})
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
+
+
+
+
+def transform_json_data(json_str):
+    """
+    将输入的 JSON 字符串转换为指定格式。
+
+    参数:
+        json_str (str): 原始 JSON 字符串。
+
+    返回:
+        str: 转换后的 JSON 字符串。
+    """
+    try:
+        # 解析原始 JSON 数据
+        data = json.loads(json_str)
+
+        # 转换每个字典
+        transformed_data = []
+        for item in data:
+            # 确保时间字符串包含秒部分
+            start_time = item["start"]
+            end_time = item["end"]
+
+            if len(start_time.split(":")) == 2:  # 如果只有小时和分钟
+                start_time += ":00"
+            if len(end_time.split(":")) == 2:  # 如果只有小时和分钟
+                end_time += ":00"
+
+            transformed_item = {
+                "id": str(uuid.uuid4()),
+                "title": item["title"],
+                "start": datetime.datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S").isoformat().replace("+00:00", "Z"),
+                "end": datetime.datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S").isoformat().replace("+00:00", "Z"),
+                "description": item.get("showmsg", ""),  # 如果 showmsg 不存在，则为空字符串
+                "importance": "",
+                "urgency": "",
+                "groupID": ""
+            }
+            transformed_data.append(transformed_item)
+
+        # 将结果转换为 JSON 字符串
+        return json.dumps(transformed_data, ensure_ascii=False, indent=4)
+
+    except json.JSONDecodeError as e:
+        print(f"JSON 解析错误: {e}")
+        return None
+    except Exception as e:
+        print(f"转换错误: {e}")
+        return None
+
+def get_response_data(cookie):
+    cookie = cookie.strip()  # 去除首尾空格
+    cookie = cookie.replace(' ', '')  # 去除中间的空格
+
+# 目标 URL
+    url = "https://jwxs.muc.edu.cn/main/queryMyProctorFull"
+
+    # 请求头（根据浏览器提供的信息）
+    headers = {
+        "Cookie": cookie,
+        "Referer": "https://jwxs.muc.edu.cn/index",
+    }
+
+    # POST 请求的表单数据（根据实际需要填写）
+    response_data = {
+        "flag": "1"  # 示例数据，根据实际需求调整
+    }
+
+    # 发送 POST 请求
+    response = requests.post(url, headers=headers, data=response_data)
+
+    # 检查响应
+    if response.status_code == 200:
+        print("请求成功！")
+    else:
+        print(f"请求失败，状态码：{response.status_code}")
+        print("响应内容：")
+        print(response.text)  # 打印错误信息
+
+    if response.status_code == 200:
+        response_data = json.loads(response.text)["data"]
+
+
+    result = transform_json_data(response_data)
+
+    return result
+
+
+
+from django.shortcuts import redirect
+from django.http import HttpResponse
+from icalendar import Calendar, Event
+import pytz
+
+def generate_ics(request):
+    # 示例数据，你可以从数据库中获取实际的日程数据
+    events_data = [
+        {
+            "title": "吃饭",
+            "start": "2025-03-01T12:00:00",
+            "end": "2025-03-01T13:00:00",
+            "description": "和朋友吃饭",
+        },
+        {
+            "title": "会议",
+            "start": "2025-03-05T14:00:00",
+            "end": "2025-03-05T15:00:00",
+            "description": "项目会议",
+        },
+    ]
+
+    # 创建日历对象
+    cal = Calendar()
+    cal.add("prodid", "-//My Calendar//mxm.dk//")
+    cal.add("version", "2.0")
+
+    # 添加事件
+    for event_data in events_data:
+        event = Event()
+        event.add("summary", event_data["title"])
+        event.add("description", event_data["description"])
+        event.add("dtstart", datetime.datetime.fromisoformat(event_data["start"]).replace(tzinfo=pytz.utc))
+        event.add("dtend", datetime.datetime.fromisoformat(event_data["end"]).replace(tzinfo=pytz.utc))
+        cal.add_component(event)
+
+    # 返回生成的 .ics 文件
+    response = HttpResponse(cal.to_ical(), content_type="text/calendar")
+    response["Content-Disposition"] = 'attachment; filename="events.ics"'
+    return response
+
+
+
+def subscribe_calendar(request):
+    ics_url = request.build_absolute_uri("/get_calendar/cal.ics")
+    webcal_url = ics_url.replace("http://", "webcal://").replace("https://", "webcal://")
+    return redirect(webcal_url)
+
+
+
+
 def get_resources(request):
     user_data, created = UserData.objects.get_or_create(user=request.user, key="resources", defaults={"value": json.dumps([
         { "id": "a", "title": "Auditorium A", "occupancy": 40 },
@@ -343,4 +718,5 @@ def get_resources(request):
     ])})
     resources = user_data.get_value()
     return JsonResponse(resources, safe=False)
+
 

@@ -15,5 +15,12 @@ urlpatterns = [
     path('get_calendar/delete_event/', views.delete_event, name='delete_event'),
     path('get_calendar/create_event/', views.create_event, name='create_event'),
     path('get_calendar/create_events_group/', views.create_events_group, name='create_events_group'),
+    path('get_calendar/update_events_group/', views.update_event_group, name='update_events_group'),
+    path('get_calendar/delete_event_groups/', views.delete_event_groups, name='delete_event_groups'),
+    path('get_calendar/import_events/', views.import_events, name='import_events'),
     path('get_calendar/resources/', views.get_resources, name='get_resources'),
+    path("get_calendar/cal.ics", views.generate_ics, name="generate_ics"),
+    path("get_calendar/subscribe_calendar/", views.subscribe_calendar, name="subscribe_calendar"),
+    path("get_calendar/change_view/", views.change_view, name="change_view"),
+    path("get_calendar/user_settings/", views.user_settings, name="user_settings"),
 ]
